@@ -27,6 +27,11 @@ const orderSchema = new mongoose.Schema({
         enum: ['pending', 'paid', 'failed'],
         default: 'pending'
     },
+    fulfillmentType: {
+        type: String,
+        enum: ['delivery', 'pickup'],
+        default: 'delivery'
+    },
     boutique: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Boutique',
@@ -34,10 +39,14 @@ const orderSchema = new mongoose.Schema({
     },
     shippingAddress: {
         street: String,
+        landmark: String,
         city: String,
         postalCode: String,
-        country: String
-    }
+        country: String,
+        latitude: Number,
+        longitude: Number
+    },
+    notes: String
 }, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);

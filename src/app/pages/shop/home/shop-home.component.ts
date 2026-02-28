@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ProductService, ProductWithBoutique } from '../../../shared/services/product.service';
+import { AdminService } from '../../../shared/services/admin.service';
+import { forkJoin } from 'rxjs';
 
 interface FeaturedBoutique {
   id: string;
@@ -12,10 +14,10 @@ interface FeaturedBoutique {
   category: string;
   productCount: number;
   image: string;
-  rating: number;
 }
 
 interface Category {
+  id: string;
   name: string;
   slug: string;
   image: string;
@@ -96,16 +98,16 @@ interface Testimonial {
           <!-- Stats -->
           <div class="flex flex-wrap gap-8 lg:gap-12">
             <div>
-              <p class="text-3xl lg:text-4xl font-bold text-white">10+</p>
+              <p class="text-3xl lg:text-4xl font-bold text-white">{{ stats().boutiques }}</p>
               <p class="text-sm text-gray-400">Boutiques partenaires</p>
             </div>
             <div>
-              <p class="text-3xl lg:text-4xl font-bold text-white">5,000+</p>
+              <p class="text-3xl lg:text-4xl font-bold text-white">{{ stats().products }}</p>
               <p class="text-sm text-gray-400">Produits disponibles</p>
             </div>
             <div>
-              <p class="text-3xl lg:text-4xl font-bold text-white">10,000+</p>
-              <p class="text-sm text-gray-400">Clients satisfaits</p>
+              <p class="text-3xl lg:text-4xl font-bold text-white">{{ stats().categories }}</p>
+              <p class="text-sm text-gray-400">Categories actives</p>
             </div>
           </div>
         </div>
@@ -133,7 +135,7 @@ interface Testimonial {
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 lg:gap-6">
-          @for (category of categories; track category.slug) {
+          @for (category of categories(); track category.id) {
             <a
               [routerLink]="['/products']"
               [queryParams]="{ category: category.slug }"
@@ -233,12 +235,6 @@ interface Testimonial {
                   <h3 class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                     {{ boutique.name }}
                   </h3>
-                  <div class="flex items-center gap-1 text-amber-500">
-                    <svg class="w-5 h-5 fill-current" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <span class="font-semibold">{{ boutique.rating }}</span>
-                  </div>
                 </div>
                 <p class="text-gray-600 dark:text-gray-400 text-sm line-clamp-2 mb-4">
                   {{ boutique.description }}
@@ -424,51 +420,28 @@ interface Testimonial {
 })
 export class ShopHomeComponent implements OnInit {
   private productService = inject(ProductService);
+  private adminService = inject(AdminService);
 
   featuredBoutiques = signal<FeaturedBoutique[]>([]);
   featuredProducts = signal<ProductWithBoutique[]>([]);
+  stats = signal({ boutiques: 0, products: 0, categories: 0 });
 
   newsletterEmail = '';
   newsletterSuccess = false;
 
-  categories: Category[] = [
-    {
-      name: 'Vêtements',
-      slug: 'vetements',
-      image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&q=80',
-      productCount: 245
-    },
-    {
-      name: 'Électronique',
-      slug: 'electronique',
-      image: 'https://images.unsplash.com/photo-1468495244123-6c6c332eeece?w=400&q=80',
-      productCount: 189
-    },
-    {
-      name: 'Maison',
-      slug: 'maison',
-      image: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&q=80',
-      productCount: 312
-    },
-    {
-      name: 'Beauté',
-      slug: 'beaute',
-      image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80',
-      productCount: 167
-    },
-    {
-      name: 'Sport',
-      slug: 'sport',
-      image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=80',
-      productCount: 134
-    },
-    {
-      name: 'Alimentation',
-      slug: 'alimentation',
-      image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80',
-      productCount: 278
-    }
-  ];
+  categories = signal<Category[]>([]);
+  private categoryNameById = new Map<string, string>();
+  private categoryImageBySlug: Record<string, string> = {
+    vetements: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&q=80',
+    electronique: 'https://images.unsplash.com/photo-1468495244123-6c6c332eeece?w=400&q=80',
+    maison: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&q=80',
+    beaute: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80',
+    sport: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=80',
+    alimentation: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80',
+    jouets: 'https://images.unsplash.com/photo-1558877385-81a1c7e67d72?w=400&q=80',
+    livres: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=400&q=80',
+    default: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&q=80'
+  };
 
   testimonials: Testimonial[] = [
     {
@@ -516,50 +489,77 @@ export class ShopHomeComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.loadFeaturedBoutiques();
+    this.loadCategoriesAndStats();
     this.loadFeaturedProducts();
   }
 
   private loadFeaturedBoutiques(): void {
-    const mockBoutiques: FeaturedBoutique[] = [
-      {
-        id: 'bout-001',
-        name: 'Mode Élégance',
-        slug: 'mode-elegance',
-        description: 'Les dernières tendances mode à prix accessibles. Vêtements, accessoires et chaussures pour toute la famille.',
-        category: 'Mode & Vêtements',
-        productCount: 156,
-        image: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=600&q=80',
-        rating: 4.8
+    this.productService.getFeaturedBoutiques(6).subscribe({
+      next: (boutiques) => {
+        this.featuredBoutiques.set(
+          boutiques.map((boutique) => ({
+            id: boutique.id,
+            name: boutique.name,
+            slug: boutique.slug,
+            description: boutique.description || 'Découvrez cette boutique partenaire.',
+            category: this.categoryNameById.get(boutique.categoryId || '') || 'Boutique',
+            productCount: boutique.productCount,
+            image: boutique.logo || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&q=80'
+          }))
+        );
       },
-      {
-        id: 'bout-002',
-        name: 'Tech & Gadgets',
-        slug: 'tech-gadgets',
-        description: 'Votre destination pour les gadgets et électroniques. Smartphones, accessoires et plus encore.',
-        category: 'Électronique',
-        productCount: 89,
-        image: 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=600&q=80',
-        rating: 4.9
-      },
-      {
-        id: 'bout-003',
-        name: 'Beauté & Soins',
-        slug: 'beaute-soins',
-        description: 'Produits de beauté et soins de qualité. Cosmétiques, parfums et soins du corps.',
-        category: 'Beauté & Soins',
-        productCount: 234,
-        image: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=600&q=80',
-        rating: 4.7
-      }
-    ];
-    this.featuredBoutiques.set(mockBoutiques);
+      error: () => this.featuredBoutiques.set([])
+    });
   }
 
   private loadFeaturedProducts(): void {
     this.productService.getFeaturedProducts(8).subscribe({
       next: (products) => {
         this.featuredProducts.set(products);
+      }
+    });
+  }
+
+  private loadCategoriesAndStats(): void {
+    forkJoin({
+      categories: this.adminService.getCategories('product' as any),
+      products: this.productService.getAllProducts(),
+      boutiques: this.productService.getBoutiques()
+    }).subscribe({
+      next: ({ categories, products, boutiques }) => {
+        this.categoryNameById.clear();
+        categories.forEach((category) => {
+          this.categoryNameById.set(category.id, category.name);
+        });
+
+        const productCountByCategoryId = products.reduce<Record<string, number>>((acc, product) => {
+          const categoryId = String(product.categoryId || '');
+          if (!categoryId) return acc;
+          acc[categoryId] = (acc[categoryId] || 0) + 1;
+          return acc;
+        }, {});
+
+        const mappedCategories = categories.map((category) => ({
+          id: category.id,
+          name: category.name,
+          slug: category.slug,
+          image: this.categoryImageBySlug[category.slug] || this.categoryImageBySlug['default'],
+          productCount: productCountByCategoryId[category.id] || 0
+        }));
+        this.categories.set(mappedCategories.slice(0, 6));
+
+        this.stats.set({
+          boutiques: boutiques.length,
+          products: products.length,
+          categories: mappedCategories.length
+        });
+
+        this.loadFeaturedBoutiques();
+      },
+      error: () => {
+        this.categories.set([]);
+        this.stats.set({ boutiques: 0, products: 0, categories: 0 });
+        this.featuredBoutiques.set([]);
       }
     });
   }
@@ -571,7 +571,6 @@ export class ShopHomeComponent implements OnInit {
 
   subscribeNewsletter(): void {
     if (this.newsletterEmail) {
-      // Mock subscription
       this.newsletterSuccess = true;
       this.newsletterEmail = '';
       setTimeout(() => {

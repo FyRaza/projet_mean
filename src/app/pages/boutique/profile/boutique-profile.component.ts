@@ -1,6 +1,8 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { BoutiqueOwnerService } from '../../../shared/services/boutique-owner.service';
+import { AdminService } from '../../../shared/services/admin.service';
 
 interface OpeningHour {
   day: string;
@@ -416,7 +418,13 @@ interface BoutiqueProfile {
     </div>
   `
 })
-export class BoutiqueProfileComponent {
+export class BoutiqueProfileComponent implements OnInit {
+  private boutiqueOwnerService = inject(BoutiqueOwnerService);
+  private adminService = inject(AdminService);
+  private boutiqueId: string | null = null;
+  private categoryMap: Record<string, string> = {};
+  private categoryNameToId: Record<string, string> = {};
+
   activeTab = signal<'general' | 'hours'>('general');
   showSuccess = signal(false);
 
@@ -426,22 +434,98 @@ export class BoutiqueProfileComponent {
   ];
 
   profile: BoutiqueProfile = {
-    id: 'bout-1',
-    name: 'Mode & Style',
-    slug: 'mode-style',
-    description: 'Boutique de mode et accessoires tendance. Nous proposons une selection soignee de vetements et accessoires pour tous les styles.',
-    logo: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200&h=200&fit=crop',
-    banner: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1200&h=400&fit=crop',
-    category: 'Mode & Accessoires',
-    contactEmail: 'contact@mode-style.mg',
-    contactPhone: '+261 34 12 345 67',
-    address: '123 Avenue de l\'Independance',
-    city: 'Antananarivo',
-    postalCode: '101',
-    website: 'https://mode-style.mg',
-    facebook: 'https://facebook.com/modestyle',
-    instagram: 'https://instagram.com/modestyle',
-    openingHours: [
+    id: '',
+    name: '',
+    slug: '',
+    description: '',
+    logo: '',
+    banner: '',
+    category: '',
+    contactEmail: '',
+    contactPhone: '',
+    address: '',
+    city: '',
+    postalCode: '',
+    website: '',
+    facebook: '',
+    instagram: '',
+    openingHours: this.getDefaultOpeningHours()
+  };
+
+  ngOnInit(): void {
+    this.adminService.getCategories().subscribe({
+      next: (categories) => {
+        this.categoryMap = categories.reduce<Record<string, string>>((acc, c) => {
+          acc[c.id] = c.name;
+          return acc;
+        }, {});
+        this.categoryNameToId = categories.reduce<Record<string, string>>((acc, c) => {
+          acc[c.name] = c.id;
+          return acc;
+        }, {});
+        this.loadProfile();
+      },
+      error: () => this.loadProfile()
+    });
+  }
+
+  private loadProfile(): void {
+    this.boutiqueOwnerService.getMyBoutique().subscribe({
+      next: (boutique) => {
+        if (!boutique) return;
+        this.boutiqueId = boutique.id;
+        this.profile = {
+          ...this.profile,
+          id: boutique.id,
+          name: boutique.name || '',
+          slug: boutique.slug || '',
+          description: boutique.description || '',
+          logo: boutique.logo || '',
+          banner: boutique.coverImage || '',
+          category: this.categoryMap[boutique.categoryId || ''] || '',
+          contactEmail: boutique.contactEmail || '',
+          contactPhone: boutique.contactPhone || '',
+          openingHours: boutique.openingHours?.length ? boutique.openingHours as any : this.getDefaultOpeningHours()
+        };
+      }
+    });
+  }
+
+  changeLogo(): void {
+    const url = prompt('URL du logo', this.profile.logo || '');
+    if (url !== null) {
+      this.profile.logo = url.trim();
+    }
+  }
+
+  changeBanner(): void {
+    const url = prompt('URL de la bannière', this.profile.banner || '');
+    if (url !== null) {
+      this.profile.banner = url.trim();
+    }
+  }
+
+  saveProfile(): void {
+    if (!this.boutiqueId) return;
+    const categoryId = this.categoryNameToId[this.profile.category] || undefined;
+    this.boutiqueOwnerService.updateBoutiqueProfile(this.boutiqueId, {
+      name: this.profile.name,
+      description: this.profile.description,
+      contactEmail: this.profile.contactEmail,
+      contactPhone: this.profile.contactPhone,
+      logo: this.profile.logo,
+      coverImage: this.profile.banner,
+      categoryId
+    }).subscribe({
+      next: () => {
+        this.showSuccess.set(true);
+        setTimeout(() => this.showSuccess.set(false), 3000);
+      }
+    });
+  }
+
+  private getDefaultOpeningHours(): OpeningHour[] {
+    return [
       { day: 'Lundi', isOpen: true, openTime: '09:00', closeTime: '18:00' },
       { day: 'Mardi', isOpen: true, openTime: '09:00', closeTime: '18:00' },
       { day: 'Mercredi', isOpen: true, openTime: '09:00', closeTime: '18:00' },
@@ -449,33 +533,6 @@ export class BoutiqueProfileComponent {
       { day: 'Vendredi', isOpen: true, openTime: '09:00', closeTime: '18:00' },
       { day: 'Samedi', isOpen: true, openTime: '09:00', closeTime: '13:00' },
       { day: 'Dimanche', isOpen: false, openTime: '09:00', closeTime: '18:00' }
-    ]
-  };
-
-  changeLogo(): void {
-    // In real app, open file picker
-    const sampleLogos = [
-      'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=200&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1528698827591-e19ccd7bc23d?w=200&h=200&fit=crop'
     ];
-    this.profile.logo = sampleLogos[Math.floor(Math.random() * sampleLogos.length)];
-  }
-
-  changeBanner(): void {
-    // In real app, open file picker
-    const sampleBanners = [
-      'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1200&h=400&fit=crop',
-      'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=1200&h=400&fit=crop',
-      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200&h=400&fit=crop'
-    ];
-    this.profile.banner = sampleBanners[Math.floor(Math.random() * sampleBanners.length)];
-  }
-
-  saveProfile(): void {
-    // In real app, save to backend
-    console.log('Saving profile:', this.profile);
-    this.showSuccess.set(true);
-    setTimeout(() => this.showSuccess.set(false), 3000);
   }
 }

@@ -28,6 +28,7 @@ export interface Order {
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMethod?: PaymentMethod;
+  fulfillmentType?: 'delivery' | 'pickup';
   shippingAddress?: Address;
   billingAddress?: Address;
   notes?: string;

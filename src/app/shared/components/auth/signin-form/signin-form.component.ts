@@ -36,11 +36,11 @@ export class SigninFormComponent {
   email = '';
   password = '';
 
-  // Demo accounts
+  // Demo accounts (aligned with backend seed script)
   private demoAccounts: Record<string, { email: string; password: string; label: string }> = {
-    admin: { email: 'admin@mail.com', password: 'password', label: 'Admin' },
-    boutique: { email: 'boutique@mail.com', password: 'password', label: 'Boutique' },
-    client: { email: 'client@mail.com', password: 'password', label: 'Client' }
+    admin: { email: 'admin@mall.mg', password: 'Admin1234!', label: 'Admin' },
+    boutique: { email: 'boutique@mall.mg', password: 'Boutique1234!', label: 'Boutique' },
+    client: { email: 'client@mall.mg', password: 'Client1234!', label: 'Client' }
   };
 
   togglePasswordVisibility() {

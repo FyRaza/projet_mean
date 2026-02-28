@@ -1,8 +1,10 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { CartService } from '../../../../shared/services/cart.service';
 import { Product } from '../../../../core/models/product.model';
+import { ProductService } from '../../../../shared/services/product.service';
 
 interface BoutiqueInfo {
   id: string;
@@ -17,7 +19,7 @@ interface BoutiqueInfo {
 @Component({
   selector: 'app-boutique-page',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       @if (boutique(); as bout) {
@@ -55,11 +57,14 @@ interface BoutiqueInfo {
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-xl font-bold text-gray-900 dark:text-white">Produits de la boutique</h2>
           <div class="flex items-center gap-2">
-            <select class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">
-              <option>Trier par: Popularite</option>
-              <option>Prix croissant</option>
-              <option>Prix decroissant</option>
-              <option>Nouveautes</option>
+            <select
+              [(ngModel)]="sortBy"
+              (ngModelChange)="applySort()"
+              class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">
+              <option value="popular">Trier par: Popularite</option>
+              <option value="price_asc">Prix croissant</option>
+              <option value="price_desc">Prix decroissant</option>
+              <option value="newest">Nouveautes</option>
             </select>
           </div>
         </div>
@@ -141,10 +146,13 @@ interface BoutiqueInfo {
 export class BoutiquePageComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private cartService = inject(CartService);
+  private productService = inject(ProductService);
 
   slug = this.route.snapshot.paramMap.get('slug') || '';
   boutique = signal<BoutiqueInfo | null>(null);
   products = signal<Product[]>([]);
+  private rawProducts: Product[] = [];
+  sortBy: 'popular' | 'price_asc' | 'price_desc' | 'newest' = 'popular';
 
   ngOnInit(): void {
     this.loadBoutique();
@@ -152,67 +160,59 @@ export class BoutiquePageComponent implements OnInit {
   }
 
   private loadBoutique(): void {
-    // Mock boutique data - Replace with actual API call
-    const mockBoutique: BoutiqueInfo = {
-      id: 'bout-' + this.slug,
-      name: this.formatSlugToName(this.slug),
-      slug: this.slug,
-      description: 'Decouvrez notre selection de produits de qualite. Nous proposons une large gamme d\'articles soigneusement selectionnes pour repondre a vos besoins.',
-      category: 'Mode & Accessoires',
-      productCount: 8
-    };
-    this.boutique.set(mockBoutique);
+    this.productService.getBoutiqueBySlug(this.slug).subscribe({
+      next: (boutique) => {
+        if (!boutique) {
+          this.boutique.set(null);
+          return;
+        }
+
+        this.boutique.set({
+          id: boutique.id,
+          name: boutique.name,
+          slug: boutique.slug,
+          description: boutique.description || '',
+          logo: boutique.logo,
+          category: 'Boutique',
+          productCount: this.products().length
+        });
+      }
+    });
   }
 
   private loadProducts(): void {
-    // Mock products data - Replace with actual API call
-    const productData = [
-      { name: 'T-shirt Premium', image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop' },
-      { name: 'Jean Slim Fit', image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400&h=400&fit=crop' },
-      { name: 'Veste en Cuir', image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=400&fit=crop' },
-      { name: 'Sneakers Urban', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop' },
-      { name: 'Sac a Main', image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400&h=400&fit=crop' },
-      { name: 'Montre Classique', image: 'https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=400&h=400&fit=crop' },
-      { name: 'Lunettes de Soleil', image: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400&h=400&fit=crop' },
-      { name: 'Ceinture en Cuir', image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&h=400&fit=crop' }
-    ];
-
-    const mockProducts: Product[] = productData.map((item, index) => ({
-      id: `prod-${this.slug}-${index + 1}`,
-      boutiqueId: 'bout-' + this.slug,
-      categoryId: 'cat-1',
-      name: item.name,
-      slug: this.formatNameToSlug(item.name),
-      description: 'Description du produit',
-      price: 25000 + (index * 15000),
-      compareAtPrice: index % 3 === 0 ? 35000 + (index * 15000) : undefined,
-      stock: index === 2 ? 0 : (index % 4 === 0 ? 3 : 15),
-      lowStockThreshold: 5,
-      images: [
-        { id: '1', url: item.image, position: 0, isPrimary: true }
-      ],
-      status: index === 2 ? 'out_of_stock' : 'active',
-      isFeatured: index < 2,
-      tags: [],
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }));
-
-    this.products.set(mockProducts);
+    this.productService.getProductsByBoutique(this.slug).subscribe({
+      next: (products) => {
+        this.rawProducts = (products as Product[]) || [];
+        this.applySort();
+        const current = this.boutique();
+        if (current) this.boutique.set({ ...current, productCount: products.length });
+      },
+      error: () => this.products.set([])
+    });
   }
 
-  private formatSlugToName(slug: string): string {
-    return slug
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  }
-
-  private formatNameToSlug(name: string): string {
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+  applySort(): void {
+    const sorted = [...this.rawProducts];
+    switch (this.sortBy) {
+      case 'price_asc':
+        sorted.sort((a, b) => a.price - b.price);
+        break;
+      case 'price_desc':
+        sorted.sort((a, b) => b.price - a.price);
+        break;
+      case 'newest':
+        sorted.sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime());
+        break;
+      default:
+        sorted.sort((a, b) => {
+          const aScore = (a.isFeatured ? 1000000 : 0) + (a.stock || 0);
+          const bScore = (b.isFeatured ? 1000000 : 0) + (b.stock || 0);
+          return bScore - aScore;
+        });
+        break;
+    }
+    this.products.set(sorted);
   }
 
   getDiscountPercent(product: Product): number {

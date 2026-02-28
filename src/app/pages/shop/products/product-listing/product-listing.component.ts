@@ -391,6 +391,7 @@ export class ProductListingComponent implements OnInit, OnDestroy {
   selectedCategory = signal<string | null>(null);
   selectedPriceRange = signal<string | null>(null);
   inStockOnly = false;
+  promoOnly = false;
   currentMinPrice: number | undefined;
   currentMaxPrice: number | undefined;
 
@@ -417,6 +418,7 @@ export class ProductListingComponent implements OnInit, OnDestroy {
     if (this.selectedCategory()) count++;
     if (this.selectedPriceRange()) count++;
     if (this.inStockOnly) count++;
+    if (this.promoOnly) count++;
     if (this.searchQuery.trim()) count++;
     return count;
   });
@@ -458,28 +460,12 @@ export class ProductListingComponent implements OnInit, OnDestroy {
       this.loadProducts();
     });
 
-    // Handle query params
-    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
-      // Handle category from URL
-      if (params['category']) {
-        const cat = this.categories().find(c => c.slug === params['category'] || c.id === params['category']);
-        if (cat) {
-          this.selectedCategory.set(cat.id);
-        }
-      }
-
-      // Handle search from URL
-      if (params['search']) {
-        this.searchQuery = params['search'];
-      }
-
-      // Handle sort from URL
-      if (params['sort']) {
-        this.sortBy = params['sort'] as ProductFilter['sortBy'];
-      }
-
-      this.loadProducts();
-    });
+    this.productService.loadProductCategories()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => this.initQueryParamsListener(),
+        error: () => this.initQueryParamsListener()
+      });
   }
 
   ngOnDestroy(): void {
@@ -498,7 +484,8 @@ export class ProductListingComponent implements OnInit, OnDestroy {
       categoryId: this.selectedCategory() || undefined,
       minPrice: this.currentMinPrice,
       maxPrice: this.currentMaxPrice === Infinity ? undefined : this.currentMaxPrice,
-      inStock: this.inStockOnly || undefined
+      inStock: this.inStockOnly || undefined,
+      featured: this.promoOnly || undefined
     };
 
     this.productService.getProducts(filter).pipe(
@@ -507,7 +494,7 @@ export class ProductListingComponent implements OnInit, OnDestroy {
       next: (result) => {
         this.products.set(result.items);
         this.totalProducts.set(result.total);
-        this.totalPages.set(result.totalPages);
+        this.totalPages.set(result.totalPages || 1);
         this.isLoading.set(false);
       },
       error: () => {
@@ -547,6 +534,7 @@ export class ProductListingComponent implements OnInit, OnDestroy {
     this.currentMaxPrice = range.max;
     this.currentPage.set(1);
     this.loadProducts();
+    this.updateUrl();
   }
 
   clearPriceRange(): void {
@@ -555,12 +543,14 @@ export class ProductListingComponent implements OnInit, OnDestroy {
     this.currentMaxPrice = undefined;
     this.currentPage.set(1);
     this.loadProducts();
+    this.updateUrl();
   }
 
   onInStockChange(value: boolean): void {
     this.inStockOnly = value;
     this.currentPage.set(1);
     this.loadProducts();
+    this.updateUrl();
   }
 
   clearAllFilters(): void {
@@ -571,6 +561,7 @@ export class ProductListingComponent implements OnInit, OnDestroy {
     this.currentMinPrice = undefined;
     this.currentMaxPrice = undefined;
     this.inStockOnly = false;
+    this.promoOnly = false;
     this.currentPage.set(1);
     this.loadProducts();
     this.updateUrl();
@@ -605,10 +596,77 @@ export class ProductListingComponent implements OnInit, OnDestroy {
       queryParams.sort = this.sortBy;
     }
 
+    if (this.currentMinPrice !== undefined) {
+      queryParams.minPrice = this.currentMinPrice;
+    } else {
+      queryParams.minPrice = null;
+    }
+
+    if (this.currentMaxPrice !== undefined && this.currentMaxPrice !== Infinity) {
+      queryParams.maxPrice = this.currentMaxPrice;
+    } else {
+      queryParams.maxPrice = null;
+    }
+
+    queryParams.inStock = this.inStockOnly ? 'true' : null;
+    queryParams.promo = this.promoOnly ? 'true' : null;
+
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams,
-      queryParamsHandling: 'merge'
+      replaceUrl: true
+    });
+  }
+
+  private initQueryParamsListener(): void {
+    // Handle query params
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      this.selectedCategory.set(null);
+      this.searchQuery = '';
+      this.sortBy = 'popular';
+      this.currentMinPrice = undefined;
+      this.currentMaxPrice = undefined;
+      this.selectedPriceRange.set(null);
+      this.inStockOnly = false;
+      this.promoOnly = false;
+
+      // Handle category from URL
+      if (params['category']) {
+        const cat = this.categories().find(c => c.slug === params['category'] || c.id === params['category']);
+        if (cat) {
+          this.selectedCategory.set(cat.id);
+        }
+      }
+
+      // Handle search from URL
+      if (params['search']) {
+        this.searchQuery = params['search'];
+      }
+
+      // Handle sort from URL
+      if (params['sort']) {
+        this.sortBy = params['sort'] as ProductFilter['sortBy'];
+      }
+
+      const minParam = params['minPrice'];
+      const maxParam = params['maxPrice'];
+      this.currentMinPrice = minParam !== undefined && minParam !== null && minParam !== '' && minParam !== 'null'
+        ? Number(minParam)
+        : undefined;
+      this.currentMaxPrice = maxParam !== undefined && maxParam !== null && maxParam !== '' && maxParam !== 'null'
+        ? Number(maxParam)
+        : undefined;
+
+      const activePriceRange = this.priceRanges.find((range) =>
+        range.min === this.currentMinPrice &&
+        (range.max === this.currentMaxPrice || (range.max === Infinity && this.currentMaxPrice === undefined))
+      );
+      this.selectedPriceRange.set(activePriceRange?.label || null);
+
+      this.inStockOnly = params['inStock'] === 'true';
+      this.promoOnly = params['promo'] === 'true';
+
+      this.loadProducts();
     });
   }
 }

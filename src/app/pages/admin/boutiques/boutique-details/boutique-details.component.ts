@@ -64,7 +64,7 @@ import { Boutique, BoutiqueStatus, BoutiqueStats } from '../../../../core/models
 
             <!-- Stats Cards -->
             @if (stats) {
-              <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
                   <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
@@ -75,19 +75,6 @@ import { Boutique, BoutiqueStatus, BoutiqueStats } from '../../../../core/models
                     <div>
                       <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ stats.totalProducts }}</p>
                       <p class="text-xs text-gray-500 dark:text-gray-400">Produits</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
-                  <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
-                      <svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 1v8m0 0v1"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ stats.totalRevenue | number:'1.0-0' }}€</p>
-                      <p class="text-xs text-gray-500 dark:text-gray-400">Revenus</p>
                     </div>
                   </div>
                 </div>

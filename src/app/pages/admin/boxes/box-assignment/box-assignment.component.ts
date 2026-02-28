@@ -381,7 +381,12 @@ export class BoxAssignmentComponent implements OnInit {
   }
 
   get unassignedBoutiques(): Boutique[] {
-    return this.boutiques.filter(b => !b.boxId && b.status === 'active');
+    const assignedBoutiqueIds = new Set(
+      this.occupiedBoxes
+        .map((box) => box.boutiqueId)
+        .filter((id): id is string => !!id)
+    );
+    return this.boutiques.filter((b) => b.status === 'active' && !assignedBoutiqueIds.has(b.id));
   }
 
   get pendingBoutiques(): Boutique[] {

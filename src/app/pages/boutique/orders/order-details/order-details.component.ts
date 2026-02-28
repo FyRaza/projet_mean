@@ -3,40 +3,8 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 
-type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'ready' | 'delivered' | 'cancelled';
-
-interface OrderItem {
-  id: string;
-  productId: string;
-  productName: string;
-  productImage: string;
-  quantity: number;
-  price: number;
-}
-
-interface Order {
-  id: string;
-  orderNumber: string;
-  customerId: string;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  items: OrderItem[];
-  subtotal: number;
-  shipping: number;
-  total: number;
-  status: OrderStatus;
-  paymentMethod: string;
-  shippingAddress: {
-    street: string;
-    city: string;
-    postalCode: string;
-    country: string;
-  };
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { OrderService } from '../../../../shared/services/order.service';
+import { Order, OrderStatus } from '../../../../core/models/order.model';
 
 interface StatusHistory {
   status: OrderStatus;
@@ -68,7 +36,9 @@ interface StatusHistory {
             </p>
           </div>
           <div class="flex items-center gap-3">
-            <button class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <button
+              (click)="printOrder()"
+              class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
               </svg>
@@ -111,11 +81,11 @@ interface StatusHistory {
                     </div>
                     <div class="text-right">
                       <p class="text-sm text-gray-500 dark:text-gray-400">Prix unitaire</p>
-                      <p class="font-medium text-gray-900 dark:text-white">{{ item.price | number:'1.0-0' }} Ar</p>
+                      <p class="font-medium text-gray-900 dark:text-white">{{ item.unitPrice | number:'1.0-0' }} Ar</p>
                     </div>
                     <div class="text-right">
                       <p class="text-sm text-gray-500 dark:text-gray-400">Total</p>
-                      <p class="font-medium text-gray-900 dark:text-white">{{ item.price * item.quantity | number:'1.0-0' }} Ar</p>
+                      <p class="font-medium text-gray-900 dark:text-white">{{ item.totalPrice | number:'1.0-0' }} Ar</p>
                     </div>
                   </div>
                 }
@@ -128,8 +98,8 @@ interface StatusHistory {
                       <span class="text-gray-900 dark:text-white">{{ ord.subtotal | number:'1.0-0' }} Ar</span>
                     </div>
                     <div class="flex justify-between text-sm">
-                      <span class="text-gray-500 dark:text-gray-400">Livraison</span>
-                      <span class="text-gray-900 dark:text-white">{{ ord.shipping | number:'1.0-0' }} Ar</span>
+                      <span class="text-gray-500 dark:text-gray-400">Livraison (Taxe)</span>
+                      <span class="text-gray-900 dark:text-white">{{ ord.tax | number:'1.0-0' }} Ar</span>
                     </div>
                     <hr class="border-gray-200 dark:border-gray-700" />
                     <div class="flex justify-between font-semibold">
@@ -140,8 +110,6 @@ interface StatusHistory {
                 </div>
               </div>
             </div>
-
-            <!-- Status Timeline -->
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Historique de la commande</h2>
 
@@ -230,9 +198,10 @@ interface StatusHistory {
                     <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                     </svg>
-                    <a [href]="'tel:' + ord.customerPhone" class="text-gray-600 dark:text-gray-300">
-                      {{ ord.customerPhone }}
-                    </a>
+                    <!-- Phone property is missing on standard user model directly accessible here without populating. Leaving generically for now -->
+                    <span class="text-gray-600 dark:text-gray-300">
+                      Non defini
+                    </span>
                   </div>
                 </div>
               </div>
@@ -240,21 +209,34 @@ interface StatusHistory {
 
             <!-- Shipping Address -->
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Adresse de livraison</h2>
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                {{ ord.fulfillmentType === 'pickup' ? 'Retrait en boutique' : 'Adresse de livraison' }}
+              </h2>
 
-              <div class="space-y-1 text-gray-600 dark:text-gray-300">
-                <p>{{ ord.shippingAddress.street }}</p>
-                <p>{{ ord.shippingAddress.postalCode }} {{ ord.shippingAddress.city }}</p>
-                <p>{{ ord.shippingAddress.country }}</p>
-              </div>
+              @if (ord.fulfillmentType === 'pickup') {
+                <p class="text-gray-600 dark:text-gray-300">Le client recuperera la commande au point de vente.</p>
+              } @else {
+                <div class="space-y-1 text-gray-600 dark:text-gray-300">
+                  <p>{{ ord.shippingAddress?.street || ord.shippingAddress?.landmark || 'N/A' }}</p>
+                  @if (ord.shippingAddress?.landmark) {
+                    <p>Repere: {{ ord.shippingAddress?.landmark }}</p>
+                  }
+                  <p>{{ ord.shippingAddress?.postalCode || '' }} {{ ord.shippingAddress?.city || '' }}</p>
+                  <p>{{ ord.shippingAddress?.country || '' }}</p>
+                </div>
+              }
 
-              <button class="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Voir sur la carte
-              </button>
+              @if (ord.fulfillmentType !== 'pickup' && hasMapCoordinates(ord)) {
+                <button
+                  (click)="openMap()"
+                  class="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Voir sur la carte
+                </button>
+              }
             </div>
 
             <!-- Payment Info -->
@@ -263,8 +245,8 @@ interface StatusHistory {
 
               <div class="space-y-3">
                 <div class="flex items-center justify-between">
-                  <span class="text-gray-500 dark:text-gray-400">Methode</span>
-                  <span class="font-medium text-gray-900 dark:text-white">{{ ord.paymentMethod }}</span>
+                  <span class="text-gray-500 dark:text-gray-400">Paiement</span>
+                  <span class="font-medium text-gray-900 dark:text-white">{{ ord.paymentStatus }}</span>
                 </div>
                 <div class="flex items-center justify-between">
                   <span class="text-gray-500 dark:text-gray-400">Statut</span>
@@ -279,35 +261,6 @@ interface StatusHistory {
               </div>
             </div>
 
-            <!-- Quick Actions -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Actions rapides</h2>
-
-              <div class="space-y-2">
-                @if (ord.status !== 'cancelled' && ord.status !== 'delivered') {
-                  <button
-                    (click)="cancelOrder()"
-                    class="w-full flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    Annuler la commande
-                  </button>
-                }
-                <button class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                  </svg>
-                  Contacter le client
-                </button>
-                <button class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  Exporter en PDF
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       } @else {
@@ -332,6 +285,7 @@ interface StatusHistory {
 export class BoutiqueOrderDetailsComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private orderService = inject(OrderService);
 
   orderId = '';
   order = signal<Order | null>(null);
@@ -340,7 +294,7 @@ export class BoutiqueOrderDetailsComponent implements OnInit {
   showToast = signal(false);
   toastMessage = signal('');
 
-  statusOrder: OrderStatus[] = ['pending', 'confirmed', 'processing', 'ready', 'delivered'];
+  statusOrder: OrderStatus[] = ['pending', 'confirmed', 'shipped', 'delivered'];
 
   ngOnInit(): void {
     this.orderId = this.route.snapshot.paramMap.get('id') || '';
@@ -348,97 +302,16 @@ export class BoutiqueOrderDetailsComponent implements OnInit {
   }
 
   private loadOrder(): void {
-    // Mock order data - Replace with actual API call
-    const mockOrders: Record<string, Order> = {
-      'ord-1': {
-        id: 'ord-1',
-        orderNumber: 'CMD-2024-001',
-        customerId: 'cust-1',
-        customerName: 'Jean Rakoto',
-        customerEmail: 'jean.rakoto@email.com',
-        customerPhone: '+261 34 12 345 67',
-        items: [
-          { id: 'item-1', productId: 'prod-1', productName: 'T-shirt Premium Coton Bio', productImage: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&h=200&fit=crop', quantity: 2, price: 35000 },
-          { id: 'item-2', productId: 'prod-2', productName: 'Jean Slim Fit Stretch', productImage: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=200&h=200&fit=crop', quantity: 1, price: 75000 }
-        ],
-        subtotal: 145000,
-        shipping: 5000,
-        total: 150000,
-        status: 'pending',
-        paymentMethod: 'Mobile Money',
-        shippingAddress: { street: '123 Rue Rainibe', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-        createdAt: new Date('2024-01-15T10:30:00'),
-        updatedAt: new Date('2024-01-15T10:30:00')
+    this.orderService.getOrderById(this.orderId).subscribe({
+      next: (order) => {
+        this.order.set(order);
+        this.loadStatusHistory(order);
       },
-      'ord-2': {
-        id: 'ord-2',
-        orderNumber: 'CMD-2024-002',
-        customerId: 'cust-2',
-        customerName: 'Marie Rabe',
-        customerEmail: 'marie.rabe@email.com',
-        customerPhone: '+261 33 98 765 43',
-        items: [
-          { id: 'item-3', productId: 'prod-4', productName: 'Ecouteurs Bluetooth Pro', productImage: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop', quantity: 1, price: 180000 }
-        ],
-        subtotal: 180000,
-        shipping: 0,
-        total: 180000,
-        status: 'confirmed',
-        paymentMethod: 'Carte bancaire',
-        shippingAddress: { street: '45 Avenue Independance', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-        createdAt: new Date('2024-01-15T09:15:00'),
-        updatedAt: new Date('2024-01-15T09:45:00')
-      },
-      'ord-3': {
-        id: 'ord-3',
-        orderNumber: 'CMD-2024-003',
-        customerId: 'cust-3',
-        customerName: 'Paul Andria',
-        customerEmail: 'paul.andria@email.com',
-        customerPhone: '+261 32 11 222 33',
-        items: [
-          { id: 'item-4', productId: 'prod-8', productName: 'Sneakers Urban Style', productImage: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&h=200&fit=crop', quantity: 1, price: 120000 },
-          { id: 'item-5', productId: 'prod-7', productName: 'Tapis de Yoga Premium', productImage: 'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=200&h=200&fit=crop', quantity: 2, price: 45000 }
-        ],
-        subtotal: 210000,
-        shipping: 5000,
-        total: 215000,
-        status: 'processing',
-        paymentMethod: 'Cash a la livraison',
-        shippingAddress: { street: '78 Rue Rabezavana', city: 'Antsirabe', postalCode: '110', country: 'Madagascar' },
-        createdAt: new Date('2024-01-14T16:20:00'),
-        updatedAt: new Date('2024-01-15T08:00:00')
+      error: (err) => {
+        console.error('Order not found', err);
+        this.router.navigate(['/boutique/orders']);
       }
-    };
-
-    const foundOrder = mockOrders[this.orderId];
-    if (foundOrder) {
-      this.order.set(foundOrder);
-      this.loadStatusHistory(foundOrder);
-    } else {
-      // Fallback to generic order
-      const genericOrder: Order = {
-        id: this.orderId,
-        orderNumber: 'CMD-2024-' + this.orderId.slice(-3).toUpperCase(),
-        customerId: 'cust-x',
-        customerName: 'Client',
-        customerEmail: 'client@email.com',
-        customerPhone: '+261 34 00 000 00',
-        items: [
-          { id: 'item-x', productId: 'prod-x', productName: 'Produit', productImage: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&h=200&fit=crop', quantity: 1, price: 50000 }
-        ],
-        subtotal: 50000,
-        shipping: 5000,
-        total: 55000,
-        status: 'pending',
-        paymentMethod: 'Mobile Money',
-        shippingAddress: { street: 'Adresse', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      this.order.set(genericOrder);
-      this.loadStatusHistory(genericOrder);
-    }
+    });
   }
 
   private loadStatusHistory(order: Order): void {
@@ -461,11 +334,12 @@ export class BoutiqueOrderDetailsComponent implements OnInit {
 
   private getStatusNote(status: OrderStatus): string {
     const notes: Record<string, string> = {
-      'pending': 'Commande recue et en attente de confirmation',
-      'confirmed': 'Commande confirmee par la boutique',
-      'processing': 'Preparation de la commande en cours',
-      'ready': 'Commande prete pour la livraison',
-      'delivered': 'Commande livree avec succes'
+      'pending': "Commande reçue et en attente de confirmation",
+      'confirmed': "Commande confirmée par la boutique",
+      'shipped': "Commande en cours d'expédition",
+      'delivered': "Commande livrée avec succès",
+      'cancelled': "Commande annulée",
+      'refunded': "Commande remboursée"
     };
     return notes[status] || '';
   }
@@ -473,11 +347,11 @@ export class BoutiqueOrderDetailsComponent implements OnInit {
   getStatusLabel(status: string): string {
     const labels: Record<string, string> = {
       'pending': 'En attente',
-      'confirmed': 'Confirmee',
-      'processing': 'En preparation',
-      'ready': 'Pret',
-      'delivered': 'Livree',
-      'cancelled': 'Annulee'
+      'confirmed': 'Confirmée',
+      'shipped': 'Expédiée',
+      'delivered': 'Livrée',
+      'cancelled': 'Annulée',
+      'refunded': 'Remboursée'
     };
     return labels[status] || status;
   }
@@ -486,10 +360,10 @@ export class BoutiqueOrderDetailsComponent implements OnInit {
     const classes: Record<string, string> = {
       'pending': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
       'confirmed': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-      'processing': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
-      'ready': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+      'shipped': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
       'delivered': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-      'cancelled': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+      'cancelled': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      'refunded': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
     };
     return classes[status] || '';
   }
@@ -507,9 +381,8 @@ export class BoutiqueOrderDetailsComponent implements OnInit {
     if (!ord) return '';
     const actions: Record<string, string> = {
       'pending': 'Confirmer',
-      'confirmed': 'Preparer',
-      'processing': 'Marquer pret',
-      'ready': 'Marquer livre'
+      'confirmed': 'Expédier',
+      'shipped': 'Marquer livré'
     };
     return actions[ord.status] || '';
   }
@@ -521,26 +394,37 @@ export class BoutiqueOrderDetailsComponent implements OnInit {
     const currentIndex = this.statusOrder.indexOf(ord.status);
     if (currentIndex < this.statusOrder.length - 1) {
       const newStatus = this.statusOrder[currentIndex + 1];
-      this.order.update(o => o ? { ...o, status: newStatus, updatedAt: new Date() } : null);
 
-      // Update history
-      this.statusHistory.update(history => [
-        ...history,
-        {
-          status: newStatus,
-          date: new Date(),
-          note: this.getStatusNote(newStatus)
+      this.orderService.updateOrderStatus(ord.id, newStatus).subscribe({
+        next: (updatedOrder) => {
+          this.order.set(updatedOrder);
+          this.loadStatusHistory(updatedOrder);
+          this.showNotification(`Commande ${this.getStatusLabel(newStatus).toLowerCase()}`);
+        },
+        error: (err) => {
+          console.error('Erreur', err);
+          alert('Impossible de mettre à jour la commande.');
         }
-      ]);
-
-      this.showNotification(`Commande ${this.getStatusLabel(newStatus).toLowerCase()}`);
+      });
     }
   }
 
   cancelOrder(): void {
-    if (confirm('Etes-vous sur de vouloir annuler cette commande?')) {
-      this.order.update(o => o ? { ...o, status: 'cancelled' as OrderStatus, updatedAt: new Date() } : null);
-      this.showNotification('Commande annulee');
+    const ord = this.order();
+    if (!ord) return;
+
+    if (confirm('Êtes-vous sûr de vouloir annuler cette commande?')) {
+      this.orderService.updateOrderStatus(ord.id, 'cancelled').subscribe({
+        next: (updatedOrder) => {
+          this.order.set(updatedOrder);
+          this.loadStatusHistory(updatedOrder);
+          this.showNotification('Commande annulée');
+        },
+        error: (err) => {
+          console.error('Erreur', err);
+          alert("Impossible d'annuler la commande.");
+        }
+      });
     }
   }
 
@@ -550,6 +434,104 @@ export class BoutiqueOrderDetailsComponent implements OnInit {
       this.showNotification('Note ajoutee');
       this.internalNote = '';
     }
+  }
+
+  openMap(): void {
+    const ord = this.order();
+    const latitude = ord?.shippingAddress?.latitude;
+    const longitude = ord?.shippingAddress?.longitude;
+    if (latitude === undefined || longitude === undefined) {
+      this.showNotification("Coordonnées GPS indisponibles");
+      return;
+    }
+    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+    window.open(mapUrl, '_blank', 'noopener,noreferrer');
+  }
+
+  hasMapCoordinates(order: Order): boolean {
+    return order?.shippingAddress?.latitude !== undefined && order?.shippingAddress?.longitude !== undefined;
+  }
+
+  printOrder(): void {
+    const ord = this.order();
+    if (!ord) return;
+    this.printHtml(this.buildPrintableHtml(ord, 'Impression commande'));
+  }
+
+  private buildPrintableHtml(ord: Order, title: string): string {
+    const itemsRows = ord.items.map((item) => `
+      <tr>
+        <td>${item.productName}</td>
+        <td>${item.quantity}</td>
+        <td>${item.unitPrice.toLocaleString('fr-FR')} Ar</td>
+        <td>${item.totalPrice.toLocaleString('fr-FR')} Ar</td>
+      </tr>
+    `).join('');
+    const address = ord.shippingAddress
+      ? `${ord.shippingAddress.street || ''}, ${ord.shippingAddress.postalCode || ''} ${ord.shippingAddress.city || ''}, ${ord.shippingAddress.country || ''}`
+      : 'N/A';
+    return `
+      <html>
+        <head>
+          <title>${title} - ${ord.orderNumber}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            h1 { margin: 0 0 8px; }
+            .meta { margin-bottom: 16px; color: #4b5563; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+            th { background: #f3f4f6; }
+            .total { margin-top: 16px; font-weight: bold; font-size: 18px; }
+          </style>
+        </head>
+        <body>
+          <h1>Commande ${ord.orderNumber}</h1>
+          <div class="meta"><strong>Boutique:</strong> ${ord.boutiqueName || 'N/A'}</div>
+          <div class="meta">Client: ${ord.customerName} (${ord.customerEmail})</div>
+          <div class="meta">Date: ${new Date(ord.createdAt).toLocaleString('fr-FR')}</div>
+          <div class="meta">Adresse: ${address}</div>
+          <table>
+            <thead>
+              <tr><th>Produit</th><th>Qté</th><th>Prix unitaire</th><th>Total</th></tr>
+            </thead>
+            <tbody>${itemsRows}</tbody>
+          </table>
+          <div class="total">Montant total: ${ord.total.toLocaleString('fr-FR')} Ar</div>
+        </body>
+      </html>
+    `;
+  }
+
+  private printHtml(html: string): void {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const frameDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!frameDoc) {
+      document.body.removeChild(iframe);
+      this.showNotification("Impossible de preparer l'aperçu d'impression");
+      return;
+    }
+
+    frameDoc.open();
+    frameDoc.write(html);
+    frameDoc.close();
+
+    iframe.onload = () => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+      }, 1500);
+    };
   }
 
   showNotification(message: string): void {

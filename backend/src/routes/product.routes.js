@@ -4,7 +4,9 @@ const router = express.Router();
 const {
     getAllProducts,
     getProductById,
+    getProductBySlug,
     createProduct,
+    updateProduct,
     deleteProduct
 } = require('../controllers/product.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
@@ -51,6 +53,43 @@ const { protect, authorize } = require('../middleware/auth.middleware');
  *           minimum: 1
  *           maximum: 100
  *         description: Nombre de produits par page
+ *       - in: query
+ *         name: boutique
+ *         schema:
+ *           type: string
+ *         description: Filtrer par ID de boutique
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Prix minimum
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Prix maximum
+ *       - in: query
+ *         name: tags
+ *         schema:
+ *           type: string
+ *         description: Tags séparés par virgules
+ *         example: "Nouveau,Bio"
+ *       - in: query
+ *         name: featured
+ *         schema:
+ *           type: boolean
+ *         description: Uniquement les produits mis en avant
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, draft, archived, out_of_stock]
+ *         description: Filtrer par statut
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *         description: "Champ de tri (ex: price, -price, name, -createdAt)"
  *     responses:
  *       200:
  *         description: Liste paginée des produits
@@ -126,6 +165,28 @@ router.get('/', getAllProducts);
  *               $ref: '#/components/schemas/Error500'
  */
 router.post('/', protect, authorize('admin', 'boutique'), createProduct);
+
+/**
+ * @swagger
+ * /api/products/slug/{slug}:
+ *   get:
+ *     summary: Récupérer un produit par slug
+ *     description: Retourne un produit en se basant sur son slug URL-friendly
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: "chemise-lin-premium"
+ *     responses:
+ *       200:
+ *         description: Produit trouvé
+ *       404:
+ *         description: Produit non trouvé
+ */
+router.get('/slug/:slug', getProductBySlug);
 
 /**
  * @swagger
@@ -220,5 +281,58 @@ router.get('/:id', getProductById);
  *               $ref: '#/components/schemas/Error500'
  */
 router.delete('/:id', protect, authorize('admin', 'boutique'), deleteProduct);
+
+/**
+ * @swagger
+ * /api/products/{id}:
+ *   put:
+ *     summary: Mettre à jour un produit
+ *     description: Met à jour un produit existant. Vérifie l'ownership (le propriétaire de la boutique ou un admin).
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               description:
+ *                 type: string
+ *               stock:
+ *                 type: integer
+ *               status:
+ *                 type: string
+ *                 enum: [active, draft, archived, out_of_stock]
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               isFeatured:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Produit mis à jour
+ *       403:
+ *         description: Non autorisé à modifier ce produit
+ *       404:
+ *         description: Produit non trouvé
+ */
+router.put('/:id', protect, authorize('admin', 'boutique'), updateProduct);
 
 module.exports = router;

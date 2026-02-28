@@ -88,6 +88,54 @@ Then open:
 
 ---
 
+## Docker Deployment (Frontend + Backend + MongoDB)
+
+This project includes a full Docker setup:
+
+- `frontend` (Angular built and served by Nginx)
+- `backend` (Node.js/Express API)
+- `mongo` (MongoDB with persistent volume)
+
+### Prerequisites
+
+- Docker Desktop
+- Docker Compose
+
+### 1) Configure environment variables
+
+Create a `.env` file at the project root (same level as `docker-compose.yml`):
+
+```env
+JWT_SECRET=change_this_to_a_long_random_secret
+CORS_ORIGIN=http://localhost
+APP_BASE_URL=http://localhost
+SWAGGER_ENABLED=true
+```
+
+### 2) Build and start all services
+
+```bash
+docker compose up -d --build
+```
+
+### 3) Access the application
+
+- Frontend: `http://localhost`
+- Backend API: `http://localhost:5000/api`
+- Swagger docs: `http://localhost/api/docs` (via Nginx proxy) or `http://localhost:5000/api/docs`
+
+### 4) Stop services
+
+```bash
+docker compose down
+```
+
+### 5) Stop services and remove DB volume
+
+```bash
+docker compose down -v
+```
+
 ## Angualr.js Tailwind Components
 
 TailAdmin Angular ships with a rich set of **ready-to-use dashboard features**:

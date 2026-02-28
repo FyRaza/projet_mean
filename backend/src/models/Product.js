@@ -9,16 +9,8 @@ const productSchema = new mongoose.Schema({
     compareAtPrice: { type: Number },
     stock: { type: Number, required: true, default: 0 },
     lowStockThreshold: { type: Number, default: 5 },
-    images: [{
-        url: String,
-        alt: String,
-        isPrimary: { type: Boolean, default: false }
-    }],
-    category: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Category',
-        required: true
-    },
+    images: [{ type: String }],
+    category: { type: String },
     boutique: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Boutique',

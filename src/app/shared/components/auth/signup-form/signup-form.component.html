@@ -23,6 +23,8 @@
     <!-- OAuth Buttons -->
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
       <button
+        type="button"
+        (click)="onGoogleSignup()"
         class="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
@@ -41,6 +43,8 @@
         Sign up with Google
       </button>
       <button
+        type="button"
+        (click)="onXSignup()"
         class="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
         <svg width="21" class="fill-current" height="20" viewBox="0 0 21 20" fill="none"
           xmlns="http://www.w3.org/2000/svg">
@@ -63,22 +67,32 @@
       </div>
     </div>
 
-    <form>
+    <form (ngSubmit)="onSignUp()">
       <div class="space-y-5">
+        @if (errorMessage) {
+          <div class="p-3 text-sm text-red-700 bg-red-50 rounded-lg dark:bg-red-900/30 dark:text-red-400">
+            {{ errorMessage }}
+          </div>
+        }
+        @if (successMessage) {
+          <div class="p-3 text-sm text-green-700 bg-green-50 rounded-lg dark:bg-green-900/30 dark:text-green-400">
+            {{ successMessage }}
+          </div>
+        }
         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <!-- First Name -->
           <div class="sm:col-span-1">
             <app-label>
               First Name<span class="text-error-500">*</span>
             </app-label>
-            <app-input-field type="text" [value]="fname" id="fname" name="fname" placeholder="Enter your first name" />
+            <app-input-field type="text" [value]="fname" (valueChange)="onFirstNameChange($event)" id="fname" name="fname" placeholder="Enter your first name" />
           </div>
           <!-- Last Name -->
           <div class="sm:col-span-1">
             <app-label>
               Last Name<span class="text-error-500">*</span>
             </app-label>
-            <app-input-field type="text" [value]="lname" id="lname" name="lname" placeholder="Enter your last name" />
+            <app-input-field type="text" [value]="lname" (valueChange)="onLastNameChange($event)" id="lname" name="lname" placeholder="Enter your last name" />
           </div>
         </div>
         <!-- Email -->
@@ -86,14 +100,14 @@
           <app-label>
             Email <span class="text-error-500">*</span>
           </app-label>
-          <app-input-field type="email" [value]="email" id="email" name="email" placeholder="Enter your email" />
+          <app-input-field type="email" [value]="email" (valueChange)="onEmailChange($event)" id="email" name="email" placeholder="Enter your email" />
         </div>
         <!-- Password -->
         <div>
           <app-label>Password <span class="text-error-500">*</span></app-label>
           <div class="relative">
             <app-input-field [type]="showPassword ? 'text' : 'password'" placeholder="Enter your password"
-              [value]="password" name="password" class="form-input" required />
+              [value]="password" (valueChange)="onPasswordChange($event)" name="password" class="form-input" required />
             <span (click)="togglePasswordVisibility()" class="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2">
               @if (showPassword) {
               <svg width="1em" height="1em" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"
@@ -130,8 +144,14 @@
         <!-- Button -->
         <div>
           <button
+            type="submit"
+            [disabled]="isLoading"
             class="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600">
-            Sign Up
+            @if (isLoading) {
+              Creation en cours...
+            } @else {
+              Sign Up
+            }
           </button>
         </div>
       </div>
@@ -139,9 +159,9 @@
 
     <div class="mt-5">
       <p class="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
-        Don't have an account?
-        <a routerLink="/signup" class="text-brand-500 hover:text-brand-600 dark:text-brand-400">
-          Sign Up
+        Already have an account?
+        <a routerLink="/signin" class="text-brand-500 hover:text-brand-600 dark:text-brand-400">
+          Sign in
         </a>
       </p>
     </div>

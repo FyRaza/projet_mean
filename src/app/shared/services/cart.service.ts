@@ -1,9 +1,11 @@
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, of } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { BehaviorSubject, Observable, of, forkJoin } from 'rxjs';
+import { map, switchMap, tap } from 'rxjs/operators';
 import { Cart, CartItem, CartSummary, AddToCartData } from '../../core/models/cart.model';
 import { Product } from '../../core/models/product.model';
 import { AuthService } from './auth.service';
+import { environment } from '../../../environments/environment';
+import { OrderService } from './order.service';
 
 export interface CartByBoutique {
   boutiqueId: string;
@@ -16,6 +18,9 @@ export interface CartByBoutique {
 @Injectable({ providedIn: 'root' })
 export class CartService {
   private authService = inject(AuthService);
+  private orderService = inject(OrderService);
+
+  private readonly CART_KEY = 'venda_cart';
 
   private cartSubject = new BehaviorSubject<Cart | null>(null);
   private loadingSubject = new BehaviorSubject<boolean>(false);
@@ -248,5 +253,65 @@ export class CartService {
       i => i.productId === productId && i.variantId === variantId
     );
     return item?.quantity || 0;
+  }
+
+  /**
+   * Checkout: creates one order per boutique group via the backend API.
+   * Requires the user to be authenticated (token injected by HttpInterceptor).
+   * Returns an array of created order IDs.
+   */
+  checkout(options?: {
+    fulfillmentType?: 'delivery' | 'pickup';
+    notes?: string;
+    shippingAddress?: {
+    street: string;
+    landmark?: string;
+    city: string;
+    postalCode: string;
+    country: string;
+    latitude?: number;
+    longitude?: number;
+    };
+  }): Observable<string[]> {
+    const cartByBoutique$ = this.cartByBoutique$;
+
+    return new Observable<string[]>(observer => {
+      let boutiqueGroups: CartByBoutique[] = [];
+      const sub = cartByBoutique$.subscribe(groups => {
+        boutiqueGroups = groups;
+      });
+      sub.unsubscribe();
+
+      if (boutiqueGroups.length === 0) {
+        observer.next([]);
+        observer.complete();
+        return;
+      }
+
+      const orderRequests = boutiqueGroups.map(group =>
+        this.orderService.createOrder({
+          items: group.items.map(item => ({
+            product: item.productId,
+            quantity: item.quantity
+          })) as any, // Type assertion since cart items lack internal product ID shape expected by API
+          boutiqueId: group.boutiqueId,
+          fulfillmentType: options?.fulfillmentType || 'delivery',
+          shippingAddress: options?.shippingAddress as any,
+          notes: options?.notes
+        })
+      );
+
+      forkJoin(orderRequests).subscribe({
+        next: (orders) => {
+          // Clear cart after successful checkout
+          this.clearCart().subscribe();
+          observer.next(orders.map(o => (o as any)._id || o.id));
+          observer.complete();
+        },
+        error: (err) => {
+          observer.error(err);
+        }
+      });
+    });
   }
 }

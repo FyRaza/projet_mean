@@ -1,21 +1,16 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
-import { delay, tap } from 'rxjs/operators';
-import {
-  User,
-  UserRole,
-  AuthCredentials,
-  RegisterData,
-  AuthResponse
-} from '../../core/models';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { map, tap } from 'rxjs/operators';
+import { User, UserRole, AuthCredentials, RegisterData, AuthResponse, Address } from '../../core/models';
+import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private http = inject(HttpClient);
   private router = inject(Router);
-  private readonly API_URL = 'http://localhost:5000/api/auth';
+  private readonly API_URL = `${environment.apiUrl}/auth`;
 
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   private isAuthenticatedSubject = new BehaviorSubject<boolean>(false);
@@ -106,8 +101,9 @@ export class AuthService {
       this.tokenSubject.next(response.token);
     }
     if (response.user) {
-      localStorage.setItem('auth_user', JSON.stringify(response.user));
-      this.currentUserSubject.next(response.user);
+      const mappedUser = this.mapUser(response.user);
+      localStorage.setItem('auth_user', JSON.stringify(mappedUser));
+      this.currentUserSubject.next(mappedUser);
     }
     this.isAuthenticatedSubject.next(true);
   }
@@ -144,13 +140,76 @@ export class AuthService {
   }
 
   updateProfile(updates: Partial<User>): Observable<User> {
-    // TODO: Implement backend endpoint for profile update
-    // return this.http.put<User>(`${this.API_URL}/me`, updates).pipe(...)
+    return this.http.put<any>(`${this.API_URL}/me`, updates).pipe(
+      map((user) => this.mapUser(user)),
+      tap((mapped) => {
+        this.currentUserSubject.next(mapped);
+        localStorage.setItem('auth_user', JSON.stringify(mapped));
+      })
+    );
+  }
 
-    // For now, update local state only as backend endpoint might not be ready
-    const updatedUser = { ...this.currentUser!, ...updates };
-    this.currentUserSubject.next(updatedUser);
-    localStorage.setItem('auth_user', JSON.stringify(updatedUser));
-    return of(updatedUser);
+  changePassword(currentPassword: string, newPassword: string): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.API_URL}/me/password`, {
+      currentPassword,
+      newPassword
+    });
+  }
+
+  deleteMyAccount(): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.API_URL}/me`);
+  }
+
+  getMyAddresses(): Observable<Address[]> {
+    return this.http.get<any[]>(`${this.API_URL}/me/addresses`).pipe(
+      map((addresses) => (addresses || []).map((address) => this.mapAddress(address)))
+    );
+  }
+
+  addAddress(address: Omit<Address, 'id'>): Observable<Address> {
+    return this.http.post<any>(`${this.API_URL}/me/addresses`, address).pipe(
+      map((created) => this.mapAddress(created))
+    );
+  }
+
+  updateAddress(addressId: string, address: Partial<Omit<Address, 'id'>>): Observable<Address> {
+    return this.http.put<any>(`${this.API_URL}/me/addresses/${addressId}`, address).pipe(
+      map((updated) => this.mapAddress(updated))
+    );
+  }
+
+  deleteAddress(addressId: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.API_URL}/me/addresses/${addressId}`);
+  }
+
+  private mapAddress(address: any): Address {
+    return {
+      id: address?.id || address?._id,
+      label: address?.label || 'Adresse',
+      fullName: address?.fullName,
+      phone: address?.phone,
+      street: address?.street || '',
+      landmark: address?.landmark || '',
+      city: address?.city || '',
+      postalCode: address?.postalCode || '',
+      country: address?.country || 'Madagascar',
+      latitude: address?.latitude,
+      longitude: address?.longitude,
+      isDefault: !!address?.isDefault
+    };
+  }
+
+  private mapUser(user: any): User {
+    return {
+      id: user?.id || user?._id,
+      firstName: user?.firstName,
+      lastName: user?.lastName,
+      email: user?.email,
+      role: user?.role,
+      phone: user?.phone,
+      isActive: user?.isActive ?? true,
+      createdAt: user?.createdAt ? new Date(user.createdAt) : new Date(),
+      updatedAt: user?.updatedAt ? new Date(user.updatedAt) : new Date()
+    };
   }
 }

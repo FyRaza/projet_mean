@@ -1,8 +1,11 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Product } from '../../../../core/models/product.model';
+import { BoutiqueOwnerService } from '../../../../shared/services/boutique-owner.service';
+import { AdminService } from '../../../../shared/services/admin.service';
+import { forkJoin } from 'rxjs';
 
 type ProductStatus = 'all' | 'active' | 'draft' | 'out_of_stock';
 
@@ -300,8 +303,11 @@ type ProductStatus = 'all' | 'active' | 'draft' | 'out_of_stock';
     </div>
   `
 })
-export class BoutiqueProductListComponent {
+export class BoutiqueProductListComponent implements OnInit {
   Math = Math;
+  private boutiqueOwnerService = inject(BoutiqueOwnerService);
+  private adminService = inject(AdminService);
+  private boutiqueId: string | null = null;
 
   // Filters
   searchQuery = '';
@@ -334,182 +340,36 @@ export class BoutiqueProductListComponent {
     'cat-6': 'Alimentation'
   };
 
-  // Mock products data
-  products = signal<Product[]>([
-    {
-      id: 'prod-1',
-      boutiqueId: 'bout-1',
-      categoryId: 'cat-1',
-      name: 'T-shirt Premium Coton Bio',
-      slug: 't-shirt-premium-coton-bio',
-      description: 'T-shirt en coton bio de haute qualite',
-      price: 35000,
-      compareAtPrice: 45000,
-      stock: 25,
-      lowStockThreshold: 5,
-      images: [{ id: '1', url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100&h=100&fit=crop', position: 0, isPrimary: true }],
-      status: 'active',
-      isFeatured: true,
-      tags: ['coton', 'bio', 'premium'],
-      createdAt: new Date('2024-01-15'),
-      updatedAt: new Date('2024-01-15')
-    },
-    {
-      id: 'prod-2',
-      boutiqueId: 'bout-1',
-      categoryId: 'cat-1',
-      name: 'Jean Slim Fit Stretch',
-      slug: 'jean-slim-fit-stretch',
-      description: 'Jean slim fit avec stretch confortable',
-      price: 75000,
-      stock: 18,
-      lowStockThreshold: 5,
-      images: [{ id: '2', url: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=100&h=100&fit=crop', position: 0, isPrimary: true }],
-      status: 'active',
-      isFeatured: false,
-      tags: ['jean', 'slim', 'stretch'],
-      createdAt: new Date('2024-01-14'),
-      updatedAt: new Date('2024-01-14')
-    },
-    {
-      id: 'prod-3',
-      boutiqueId: 'bout-1',
-      categoryId: 'cat-1',
-      name: 'Veste en Cuir Vintage',
-      slug: 'veste-cuir-vintage',
-      description: 'Veste en cuir veritable style vintage',
-      price: 250000,
-      compareAtPrice: 320000,
-      stock: 0,
-      lowStockThreshold: 3,
-      images: [{ id: '3', url: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=100&h=100&fit=crop', position: 0, isPrimary: true }],
-      status: 'out_of_stock',
-      isFeatured: true,
-      tags: ['cuir', 'vintage', 'veste'],
-      createdAt: new Date('2024-01-13'),
-      updatedAt: new Date('2024-01-13')
-    },
-    {
-      id: 'prod-4',
-      boutiqueId: 'bout-1',
-      categoryId: 'cat-2',
-      name: 'Ecouteurs Bluetooth Pro',
-      slug: 'ecouteurs-bluetooth-pro',
-      description: 'Ecouteurs sans fil avec reduction de bruit',
-      price: 180000,
-      stock: 42,
-      lowStockThreshold: 10,
-      images: [{ id: '4', url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&h=100&fit=crop', position: 0, isPrimary: true }],
-      status: 'active',
-      isFeatured: true,
-      tags: ['bluetooth', 'ecouteurs', 'audio'],
-      createdAt: new Date('2024-01-12'),
-      updatedAt: new Date('2024-01-12')
-    },
-    {
-      id: 'prod-5',
-      boutiqueId: 'bout-1',
-      categoryId: 'cat-3',
-      name: 'Lampe de Bureau LED',
-      slug: 'lampe-bureau-led',
-      description: 'Lampe LED avec variateur de luminosite',
-      price: 65000,
-      stock: 4,
-      lowStockThreshold: 5,
-      images: [{ id: '5', url: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=100&h=100&fit=crop', position: 0, isPrimary: true }],
-      status: 'active',
-      isFeatured: false,
-      tags: ['lampe', 'led', 'bureau'],
-      createdAt: new Date('2024-01-11'),
-      updatedAt: new Date('2024-01-11')
-    },
-    {
-      id: 'prod-6',
-      boutiqueId: 'bout-1',
-      categoryId: 'cat-4',
-      name: 'Coffret Soins Visage',
-      slug: 'coffret-soins-visage',
-      description: 'Coffret complet de soins pour le visage',
-      price: 95000,
-      compareAtPrice: 120000,
-      stock: 15,
-      lowStockThreshold: 5,
-      images: [{ id: '6', url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=100&h=100&fit=crop', position: 0, isPrimary: true }],
-      status: 'draft',
-      isFeatured: false,
-      tags: ['beaute', 'soins', 'visage'],
-      createdAt: new Date('2024-01-10'),
-      updatedAt: new Date('2024-01-10')
-    },
-    {
-      id: 'prod-7',
-      boutiqueId: 'bout-1',
-      categoryId: 'cat-5',
-      name: 'Tapis de Yoga Premium',
-      slug: 'tapis-yoga-premium',
-      description: 'Tapis de yoga antiderapant epaisseur 6mm',
-      price: 45000,
-      stock: 30,
-      lowStockThreshold: 8,
-      images: [{ id: '7', url: 'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=100&h=100&fit=crop', position: 0, isPrimary: true }],
-      status: 'active',
-      isFeatured: false,
-      tags: ['yoga', 'sport', 'fitness'],
-      createdAt: new Date('2024-01-09'),
-      updatedAt: new Date('2024-01-09')
-    },
-    {
-      id: 'prod-8',
-      boutiqueId: 'bout-1',
-      categoryId: 'cat-1',
-      name: 'Sneakers Urban Style',
-      slug: 'sneakers-urban-style',
-      description: 'Baskets urbaines confortables',
-      price: 120000,
-      stock: 12,
-      lowStockThreshold: 5,
-      images: [{ id: '8', url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop', position: 0, isPrimary: true }],
-      status: 'active',
-      isFeatured: true,
-      tags: ['sneakers', 'chaussures', 'urban'],
-      createdAt: new Date('2024-01-08'),
-      updatedAt: new Date('2024-01-08')
-    },
-    {
-      id: 'prod-9',
-      boutiqueId: 'bout-1',
-      categoryId: 'cat-2',
-      name: 'Montre Connectee Sport',
-      slug: 'montre-connectee-sport',
-      description: 'Montre connectee avec GPS integre',
-      price: 350000,
-      stock: 8,
-      lowStockThreshold: 3,
-      images: [{ id: '9', url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100&h=100&fit=crop', position: 0, isPrimary: true }],
-      status: 'draft',
-      isFeatured: false,
-      tags: ['montre', 'connectee', 'sport'],
-      createdAt: new Date('2024-01-07'),
-      updatedAt: new Date('2024-01-07')
-    },
-    {
-      id: 'prod-10',
-      boutiqueId: 'bout-1',
-      categoryId: 'cat-3',
-      name: 'Coussin Decoratif Velours',
-      slug: 'coussin-decoratif-velours',
-      description: 'Coussin en velours 45x45cm',
-      price: 28000,
-      stock: 0,
-      lowStockThreshold: 5,
-      images: [{ id: '10', url: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?w=100&h=100&fit=crop', position: 0, isPrimary: true }],
-      status: 'out_of_stock',
-      isFeatured: false,
-      tags: ['coussin', 'decoration', 'velours'],
-      createdAt: new Date('2024-01-06'),
-      updatedAt: new Date('2024-01-06')
-    }
-  ]);
+  ngOnInit(): void {
+    this.products.set([]);
+    this.loadCategories();
+    this.boutiqueOwnerService.getMyBoutique().subscribe((boutique) => {
+      this.boutiqueId = boutique?.id || null;
+      if (this.boutiqueId) {
+        this.loadProducts();
+      }
+    });
+  }
+
+  private loadProducts(): void {
+    if (!this.boutiqueId) return;
+    this.boutiqueOwnerService.getBoutiqueProducts(this.boutiqueId, 1, 200).subscribe({
+      next: (res) => this.products.set(res.products || []),
+      error: () => this.products.set([])
+    });
+  }
+
+  private loadCategories(): void {
+    this.adminService.getCategories().subscribe((categories) => {
+      this.categoryMap = categories.reduce<Record<string, string>>((acc, category) => {
+        acc[category.id] = category.name;
+        return acc;
+      }, {});
+      this.categories = Array.from(new Set(categories.map((category) => category.name)));
+    });
+  }
+
+  products = signal<Product[]>([]);
 
   filteredProducts = computed(() => {
     let result = this.products();
@@ -576,7 +436,8 @@ export class BoutiqueProductListComponent {
     return this.products().filter(p => p.status === status).length;
   }
 
-  getCategoryName(categoryId: string): string {
+  getCategoryName(categoryId?: string): string {
+    if (!categoryId) return 'Non categorise';
     return this.categoryMap[categoryId] || 'Non categorise';
   }
 
@@ -603,66 +464,82 @@ export class BoutiqueProductListComponent {
   }
 
   toggleProductStatus(product: Product): void {
-    this.products.update(products =>
-      products.map(p => {
-        if (p.id === product.id) {
-          return { ...p, status: p.status === 'active' ? 'draft' : 'active' } as Product;
-        }
-        return p;
-      })
-    );
+    const nextStatus = product.status === 'active' ? 'draft' : 'active';
+    this.boutiqueOwnerService.updateProduct(product.id, { status: nextStatus }).subscribe({
+      next: (updated) => {
+        this.products.update((products) => products.map((p) => p.id === product.id ? updated : p));
+      }
+    });
   }
 
   duplicateProduct(product: Product): void {
-    const newProduct: Product = {
-      ...product,
-      id: 'prod-' + Date.now(),
-      name: product.name + ' (Copie)',
-      slug: product.slug + '-copie',
+    if (!this.boutiqueId) return;
+    this.boutiqueOwnerService.createProduct({
+      name: `${product.name} (Copie)`,
+      description: product.description,
+      shortDescription: product.shortDescription,
+      price: product.price,
+      compareAtPrice: product.compareAtPrice,
+      categoryId: product.categoryId,
+      boutiqueId: this.boutiqueId,
+      stock: product.stock,
+      images: (product.images || []).map((image) => image.url),
+      tags: product.tags || [],
+      isFeatured: false,
       status: 'draft',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.products.update(products => [newProduct, ...products]);
+      lowStockThreshold: product.lowStockThreshold
+    } as any).subscribe({
+      next: (created) => this.products.update((products) => [created, ...products])
+    });
   }
 
   deleteProduct(product: Product): void {
     if (confirm(`Etes-vous sur de vouloir supprimer "${product.name}" ?`)) {
-      this.products.update(products => products.filter(p => p.id !== product.id));
-      this.selectedProducts.update(selected => selected.filter(id => id !== product.id));
+      this.boutiqueOwnerService.deleteProduct(product.id).subscribe({
+        next: () => {
+          this.products.update(products => products.filter(p => p.id !== product.id));
+          this.selectedProducts.update(selected => selected.filter(id => id !== product.id));
+        }
+      });
     }
   }
 
   bulkActivate(): void {
-    this.products.update(products =>
-      products.map(p => {
-        if (this.selectedProducts().includes(p.id)) {
-          return { ...p, status: 'active' } as Product;
-        }
-        return p;
-      })
+    const requests = this.selectedProducts().map((id) =>
+      this.boutiqueOwnerService.updateProduct(id, { status: 'active' })
     );
-    this.selectedProducts.set([]);
+    if (!requests.length) return;
+    forkJoin(requests).subscribe({
+      next: () => {
+        this.loadProducts();
+        this.selectedProducts.set([]);
+      }
+    });
   }
 
   bulkDeactivate(): void {
-    this.products.update(products =>
-      products.map(p => {
-        if (this.selectedProducts().includes(p.id)) {
-          return { ...p, status: 'draft' } as Product;
-        }
-        return p;
-      })
+    const requests = this.selectedProducts().map((id) =>
+      this.boutiqueOwnerService.updateProduct(id, { status: 'draft' })
     );
-    this.selectedProducts.set([]);
+    if (!requests.length) return;
+    forkJoin(requests).subscribe({
+      next: () => {
+        this.loadProducts();
+        this.selectedProducts.set([]);
+      }
+    });
   }
 
   bulkDelete(): void {
     if (confirm(`Etes-vous sur de vouloir supprimer ${this.selectedProducts().length} produit(s) ?`)) {
-      this.products.update(products =>
-        products.filter(p => !this.selectedProducts().includes(p.id))
-      );
-      this.selectedProducts.set([]);
+      const requests = this.selectedProducts().map((id) => this.boutiqueOwnerService.deleteProduct(id));
+      if (!requests.length) return;
+      forkJoin(requests).subscribe({
+        next: () => {
+          this.loadProducts();
+          this.selectedProducts.set([]);
+        }
+      });
     }
   }
 

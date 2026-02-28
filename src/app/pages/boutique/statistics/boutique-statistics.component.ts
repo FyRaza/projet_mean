@@ -1,6 +1,11 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
+import { BoutiqueOwnerService } from '../../../shared/services/boutique-owner.service';
+import { OrderService } from '../../../shared/services/order.service';
+import { AdminService } from '../../../shared/services/admin.service';
+import { Product } from '../../../core/models/product.model';
 
 interface DailyStat {
   date: string;
@@ -32,13 +37,16 @@ interface TopProduct {
         <div class="flex items-center gap-3">
           <select
             [(ngModel)]="selectedPeriod"
+            (ngModelChange)="onPeriodChange()"
             class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
             <option value="7">7 derniers jours</option>
             <option value="30">30 derniers jours</option>
             <option value="90">3 derniers mois</option>
             <option value="365">Cette annee</option>
           </select>
-          <button class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <button
+            (click)="exportStatistics()"
+            class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
@@ -56,11 +64,17 @@ interface TopProduct {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <span class="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
+            <span
+              class="text-sm font-medium flex items-center gap-1"
+              [class]="trendClass(revenueTrend)">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  [attr.d]="trendIconPath(revenueTrend)" />
               </svg>
-              +12.5%
+              {{ formatTrend(revenueTrend) }}
             </span>
           </div>
           <h3 class="text-3xl font-bold text-gray-900 dark:text-white">{{ totalRevenue | number:'1.0-0' }} Ar</h3>
@@ -74,11 +88,17 @@ interface TopProduct {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
               </svg>
             </div>
-            <span class="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
+            <span
+              class="text-sm font-medium flex items-center gap-1"
+              [class]="trendClass(ordersTrend)">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  [attr.d]="trendIconPath(ordersTrend)" />
               </svg>
-              +8.3%
+              {{ formatTrend(ordersTrend) }}
             </span>
           </div>
           <h3 class="text-3xl font-bold text-gray-900 dark:text-white">{{ totalOrders }}</h3>
@@ -92,11 +112,17 @@ interface TopProduct {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
-            <span class="text-sm font-medium text-red-600 dark:text-red-400 flex items-center gap-1">
+            <span
+              class="text-sm font-medium flex items-center gap-1"
+              [class]="trendClass(conversionTrend)">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  [attr.d]="trendIconPath(conversionTrend)" />
               </svg>
-              -2.4%
+              {{ formatTrend(conversionTrend) }}
             </span>
           </div>
           <h3 class="text-3xl font-bold text-gray-900 dark:text-white">{{ conversionRate }}%</h3>
@@ -122,9 +148,10 @@ interface TopProduct {
           </div>
 
           <!-- Simple Chart Visualization -->
-          <div class="h-64 flex items-end gap-2">
-            @for (stat of dailyStats; track stat.date) {
-              <div class="flex-1 flex flex-col items-center gap-1">
+          <div class="overflow-x-auto">
+            <div class="h-64 flex items-end gap-2" [style.min-width.px]="chartMinWidth">
+            @for (stat of dailyStats; track stat.date; let i = $index) {
+              <div class="w-8 shrink-0 flex flex-col items-center gap-1">
                 <div class="w-full flex flex-col items-center gap-1">
                   <div
                     class="w-full bg-brand-500 rounded-t"
@@ -135,9 +162,14 @@ interface TopProduct {
                     [style.height.px]="(stat.orders / maxOrders) * 50"
                   ></div>
                 </div>
-                <span class="text-xs text-gray-500 dark:text-gray-400 mt-2">{{ stat.date }}</span>
+                @if (shouldShowDateLabel(i)) {
+                  <span class="text-[10px] text-gray-500 dark:text-gray-400 mt-2 whitespace-nowrap">{{ stat.date }}</span>
+                } @else {
+                  <span class="text-[10px] mt-2">&nbsp;</span>
+                }
               </div>
             }
+            </div>
           </div>
         </div>
 
@@ -225,66 +257,327 @@ interface TopProduct {
     </div>
   `
 })
-export class BoutiqueStatisticsComponent {
+export class BoutiqueStatisticsComponent implements OnInit {
+  private boutiqueOwnerService = inject(BoutiqueOwnerService);
+  private orderService = inject(OrderService);
+  private adminService = inject(AdminService);
+  private boutiqueId: string | null = null;
+  private allProducts: Product[] = [];
+  private allOrders: any[] = [];
+
   selectedPeriod = '30';
 
   // Summary stats
-  totalRevenue = 2450000;
-  totalOrders = 47;
-  totalVisitors = 1823;
-  conversionRate = 2.6;
+  totalRevenue = 0;
+  totalOrders = 0;
+  conversionRate = 0;
+  revenueTrend = 0;
+  ordersTrend = 0;
+  conversionTrend = 0;
 
   // Daily stats for chart
-  dailyStats: DailyStat[] = [
-    { date: 'Lun', orders: 5, revenue: 175000, visitors: 245 },
-    { date: 'Mar', orders: 8, revenue: 280000, visitors: 312 },
-    { date: 'Mer', orders: 6, revenue: 210000, visitors: 267 },
-    { date: 'Jeu', orders: 9, revenue: 315000, visitors: 298 },
-    { date: 'Ven', orders: 12, revenue: 420000, visitors: 356 },
-    { date: 'Sam', orders: 15, revenue: 525000, visitors: 423 },
-    { date: 'Dim', orders: 7, revenue: 245000, visitors: 189 }
-  ];
+  dailyStats: DailyStat[] = [];
 
   get maxRevenue(): number {
-    return Math.max(...this.dailyStats.map(s => s.revenue));
+    const max = Math.max(...this.dailyStats.map(s => s.revenue), 0);
+    return max > 0 ? max : 1;
   }
 
   get maxOrders(): number {
-    return Math.max(...this.dailyStats.map(s => s.orders));
+    const max = Math.max(...this.dailyStats.map(s => s.orders), 0);
+    return max > 0 ? max : 1;
+  }
+
+  get chartMinWidth(): number {
+    return Math.max(this.dailyStats.length * 36, 640);
   }
 
   // Top products
-  topProducts: TopProduct[] = [
-    { id: '1', name: 'T-shirt Premium', image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100&h=100&fit=crop', sold: 42, revenue: 1470000 },
-    { id: '2', name: 'Jean Slim Fit', image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=100&h=100&fit=crop', sold: 28, revenue: 2100000 },
-    { id: '3', name: 'Sneakers Urban', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop', sold: 19, revenue: 2280000 },
-    { id: '4', name: 'Ecouteurs Bluetooth', image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&h=100&fit=crop', sold: 15, revenue: 2700000 },
-    { id: '5', name: 'Montre Connectee', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100&h=100&fit=crop', sold: 8, revenue: 2800000 }
-  ];
+  topProducts: TopProduct[] = [];
 
   // Order status distribution
   orderStatusDistribution = [
-    { label: 'Livrees', count: 32, percentage: 68, color: 'bg-green-500' },
-    { label: 'En preparation', count: 8, percentage: 17, color: 'bg-blue-500' },
-    { label: 'En attente', count: 5, percentage: 11, color: 'bg-yellow-500' },
-    { label: 'Annulees', count: 2, percentage: 4, color: 'bg-red-500' }
-  ];
-
-  // Recent activities
-  recentActivities = [
-    { id: '1', type: 'order', message: 'Nouvelle commande #CMD-2024-048 de Jean R.', time: 'Il y a 15 min', iconBg: 'bg-blue-100 dark:bg-blue-900/30', iconColor: 'text-blue-600 dark:text-blue-400' },
-    { id: '2', type: 'review', message: 'Nouvel avis 5 etoiles sur "T-shirt Premium"', time: 'Il y a 1h', iconBg: 'bg-yellow-100 dark:bg-yellow-900/30', iconColor: 'text-yellow-600 dark:text-yellow-400' },
-    { id: '3', type: 'product', message: 'Stock faible: "Sneakers Urban" (3 restants)', time: 'Il y a 2h', iconBg: 'bg-orange-100 dark:bg-orange-900/30', iconColor: 'text-orange-600 dark:text-orange-400' },
-    { id: '4', type: 'order', message: 'Commande #CMD-2024-045 livree', time: 'Il y a 3h', iconBg: 'bg-green-100 dark:bg-green-900/30', iconColor: 'text-green-600 dark:text-green-400' },
-    { id: '5', type: 'product', message: 'Nouveau produit ajoute: "Veste Cuir"', time: 'Il y a 5h', iconBg: 'bg-purple-100 dark:bg-purple-900/30', iconColor: 'text-purple-600 dark:text-purple-400' }
+    { label: 'Livrees', count: 0, percentage: 0, color: 'bg-green-500' },
+    { label: 'En preparation', count: 0, percentage: 0, color: 'bg-blue-500' },
+    { label: 'En attente', count: 0, percentage: 0, color: 'bg-yellow-500' },
+    { label: 'Annulees', count: 0, percentage: 0, color: 'bg-red-500' }
   ];
 
   // Category performance
-  categoryPerformance = [
-    { name: 'Mode', products: 15, sales: 89, revenue: 2890000, growth: 12.5 },
-    { name: 'Electronique', products: 8, sales: 34, revenue: 4250000, growth: 8.3 },
-    { name: 'Maison', products: 12, sales: 23, revenue: 980000, growth: -2.1 },
-    { name: 'Sport', products: 6, sales: 18, revenue: 720000, growth: 15.7 },
-    { name: 'Beaute', products: 10, sales: 42, revenue: 1680000, growth: 5.4 }
-  ];
+  categoryPerformance: { name: string; products: number; sales: number; revenue: number; growth: number }[] = [];
+
+  ngOnInit(): void {
+    this.boutiqueOwnerService.getMyBoutique().subscribe({
+      next: (boutique) => {
+        this.boutiqueId = boutique?.id || null;
+        if (!this.boutiqueId) return;
+        this.loadData();
+      }
+    });
+  }
+
+  onPeriodChange(): void {
+    this.computeDerivedStats();
+  }
+
+  private async loadData(): Promise<void> {
+    if (!this.boutiqueId) return;
+    try {
+      const categories = await firstValueFrom(this.adminService.getCategories());
+      const categoryMap = (categories || []).reduce<Record<string, string>>((acc, c) => {
+        acc[c.id] = c.name;
+        return acc;
+      }, {});
+
+      this.allProducts = await this.fetchAllProducts(this.boutiqueId);
+      this.allOrders = await this.fetchAllOrders(this.boutiqueId);
+      this.computeDerivedStats(categoryMap);
+    } catch {
+      this.allProducts = [];
+      this.allOrders = [];
+      this.computeDerivedStats();
+    }
+  }
+
+  private computeDerivedStats(categoryMap: Record<string, string> = {}): void {
+    const days = Number(this.selectedPeriod || '30');
+    const now = new Date();
+    const to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const from = new Date(to);
+    from.setDate(from.getDate() - (days - 1));
+    from.setHours(0, 0, 0, 0);
+
+    const previousTo = new Date(from);
+    previousTo.setDate(previousTo.getDate() - 1);
+    const previousFrom = new Date(previousTo);
+    previousFrom.setDate(previousFrom.getDate() - (days - 1));
+
+    const inRange = (date: Date, rangeStart: Date, rangeEnd: Date) => date >= rangeStart && date <= rangeEnd;
+    const currentPeriod = this.allOrders.filter((o) => inRange(new Date(o.createdAt), from, to));
+    const previousPeriod = this.allOrders.filter((o) => inRange(new Date(o.createdAt), previousFrom, previousTo));
+
+    const previousRevenue = previousPeriod
+      .filter((o) => o.status === 'delivered')
+      .reduce((sum, o) => sum + (o.total || 0), 0);
+    const previousOrders = previousPeriod.length;
+    const previousDelivered = previousPeriod.filter((o) => o.status === 'delivered').length;
+    const previousConversion = previousOrders ? (previousDelivered / previousOrders) * 100 : 0;
+
+    const inPeriod = currentPeriod;
+    this.totalOrders = inPeriod.length;
+    this.totalRevenue = inPeriod
+      .filter((o) => o.status === 'delivered')
+      .reduce((sum, o) => sum + (o.total || 0), 0);
+
+    const delivered = inPeriod.filter((o) => o.status === 'delivered').length;
+    this.conversionRate = this.totalOrders ? Number(((delivered / this.totalOrders) * 100).toFixed(1)) : 0;
+    this.revenueTrend = this.computePercentageChange(previousRevenue, this.totalRevenue);
+    this.ordersTrend = this.computePercentageChange(previousOrders, this.totalOrders);
+    this.conversionTrend = this.computePercentageChange(previousConversion, this.conversionRate);
+
+    const byDay = new Map<string, { orders: number; revenue: number; visitors: number; customers: Set<string> }>();
+    inPeriod.forEach((o) => {
+      const d = new Date(o.createdAt);
+      const key = this.dateKey(d);
+      const existing = byDay.get(key) || { orders: 0, revenue: 0, visitors: 0, customers: new Set<string>() };
+      existing.orders += 1;
+      if (o.status === 'delivered') existing.revenue += o.total || 0;
+      if (o.customerId) existing.customers.add(String(o.customerId));
+      byDay.set(key, existing);
+    });
+
+    this.dailyStats = this.buildDateRange(from, to).map((date) => {
+      const key = this.dateKey(date);
+      const values = byDay.get(key);
+      return {
+        date: date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+        orders: values?.orders || 0,
+        revenue: values?.revenue || 0,
+        visitors: values?.customers.size || 0
+      };
+    });
+
+    const statusCount = {
+      delivered: inPeriod.filter((o) => o.status === 'delivered').length,
+      processing: inPeriod.filter((o) => o.status === 'confirmed' || o.status === 'shipped').length,
+      pending: inPeriod.filter((o) => o.status === 'pending').length,
+      cancelled: inPeriod.filter((o) => o.status === 'cancelled').length
+    };
+    const total = Math.max(1, inPeriod.length);
+    this.orderStatusDistribution = [
+      { label: 'Livrees', count: statusCount.delivered, percentage: Math.round((statusCount.delivered / total) * 100), color: 'bg-green-500' },
+      { label: 'En preparation', count: statusCount.processing, percentage: Math.round((statusCount.processing / total) * 100), color: 'bg-blue-500' },
+      { label: 'En attente', count: statusCount.pending, percentage: Math.round((statusCount.pending / total) * 100), color: 'bg-yellow-500' },
+      { label: 'Annulees', count: statusCount.cancelled, percentage: Math.round((statusCount.cancelled / total) * 100), color: 'bg-red-500' }
+    ];
+
+    const productStats = new Map<string, TopProduct>();
+    inPeriod.forEach((order) => {
+      (order.items || []).forEach((item: any) => {
+        const id = item.productId || item.product?._id || item.product;
+        const existing = productStats.get(id) || {
+          id,
+          name: item.productName || item.name || 'Produit',
+          image: item.productImage || '',
+          sold: 0,
+          revenue: 0
+        };
+        existing.sold += item.quantity || 0;
+        existing.revenue += (item.unitPrice || item.price || 0) * (item.quantity || 0);
+        productStats.set(id, existing);
+      });
+    });
+    this.topProducts = Array.from(productStats.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+    const categoryAgg = new Map<string, { products: number; sales: number; revenue: number }>();
+    this.allProducts.forEach((p) => {
+      const catName = categoryMap[p.categoryId || ''] || 'Non classe';
+      const existing = categoryAgg.get(catName) || { products: 0, sales: 0, revenue: 0 };
+      existing.products += 1;
+      categoryAgg.set(catName, existing);
+    });
+    inPeriod.forEach((order) => {
+      (order.items || []).forEach((item: any) => {
+        const product = this.allProducts.find((p) => p.id === (item.productId || item.product?._id || item.product));
+        const catName = product ? (categoryMap[product.categoryId || ''] || 'Non classe') : 'Non classe';
+        const existing = categoryAgg.get(catName) || { products: 0, sales: 0, revenue: 0 };
+        existing.sales += item.quantity || 0;
+        existing.revenue += (item.unitPrice || item.price || 0) * (item.quantity || 0);
+        categoryAgg.set(catName, existing);
+      });
+    });
+    this.categoryPerformance = Array.from(categoryAgg.entries()).map(([name, v]) => ({
+      name,
+      products: v.products,
+      sales: v.sales,
+      revenue: v.revenue,
+      growth: 0
+    })).sort((a, b) => b.revenue - a.revenue);
+
+    const previousCategoryRevenue = this.computeCategoryRevenue(previousPeriod, categoryMap);
+    const currentCategoryRevenue = this.computeCategoryRevenue(currentPeriod, categoryMap);
+    this.categoryPerformance = this.categoryPerformance.map((cat) => ({
+      ...cat,
+      growth: this.computePercentageChange(previousCategoryRevenue[cat.name] || 0, currentCategoryRevenue[cat.name] || 0)
+    }));
+  }
+
+  formatTrend(value: number): string {
+    if (!isFinite(value) || value === 0) return '0.0%';
+    return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
+  }
+
+  shouldShowDateLabel(index: number): boolean {
+    const total = this.dailyStats.length;
+    if (total <= 10) return true;
+    const step = Math.ceil(total / 10); // max ~10 labels visibles
+    return index % step === 0 || index === total - 1;
+  }
+
+  trendClass(value: number): string {
+    if (value > 0) return 'text-green-600 dark:text-green-400';
+    if (value < 0) return 'text-red-600 dark:text-red-400';
+    return 'text-gray-500 dark:text-gray-400';
+  }
+
+  trendIconPath(value: number): string {
+    if (value > 0) return 'M5 10l7-7m0 0l7 7m-7-7v18';
+    if (value < 0) return 'M19 14l-7 7m0 0l-7-7m7 7V3';
+    return 'M5 12h14';
+  }
+
+  exportStatistics(): void {
+    const rows = this.dailyStats.map((s) => ({
+      date: s.date,
+      commandes: s.orders,
+      revenus: s.revenue,
+      clientsUniques: s.visitors
+    }));
+
+    const headers = ['Date', 'Commandes', 'Revenus (Ar)', 'Clients uniques'];
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((r) => [r.date, r.commandes, r.revenus, r.clientsUniques].join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const period = this.selectedPeriod || '30';
+    link.href = url;
+    link.download = `statistiques-boutique-${period}j.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  private computePercentageChange(previous: number, current: number): number {
+    if (!previous && !current) return 0;
+    if (!previous) return 100;
+    return Number((((current - previous) / previous) * 100).toFixed(1));
+  }
+
+  private dateKey(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  private buildDateRange(from: Date, to: Date): Date[] {
+    const range: Date[] = [];
+    const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      range.push(new Date(d));
+    }
+    return range;
+  }
+
+  private computeCategoryRevenue(orders: any[], categoryMap: Record<string, string>): Record<string, number> {
+    const revenueByCategory: Record<string, number> = {};
+    orders.forEach((order) => {
+      (order.items || []).forEach((item: any) => {
+        const product = this.allProducts.find((p) => p.id === (item.productId || item.product?._id || item.product));
+        const catName = product ? (categoryMap[product.categoryId || ''] || 'Non classe') : 'Non classe';
+        revenueByCategory[catName] = (revenueByCategory[catName] || 0) + ((item.unitPrice || item.price || 0) * (item.quantity || 0));
+      });
+    });
+    return revenueByCategory;
+  }
+
+  private async fetchAllOrders(boutiqueId: string): Promise<any[]> {
+    const all: any[] = [];
+    let page = 1;
+    let pages = 1;
+    const limit = 100;
+
+    do {
+      const res = await firstValueFrom(this.orderService.getOrders({ boutiqueId, page, limit }));
+      const chunk = res?.orders || [];
+      all.push(...chunk);
+      pages = res?.pages || 1;
+      page += 1;
+    } while (page <= pages);
+
+    return all;
+  }
+
+  private async fetchAllProducts(boutiqueId: string): Promise<Product[]> {
+    const all: Product[] = [];
+    let page = 1;
+    let pages = 1;
+    const limit = 100;
+
+    do {
+      const res = await firstValueFrom(this.boutiqueOwnerService.getBoutiqueProducts(boutiqueId, page, limit));
+      const chunk = res?.products || [];
+      all.push(...chunk);
+      pages = res?.pages || 1;
+      page += 1;
+    } while (page <= pages);
+
+    return all;
+  }
 }

@@ -12,7 +12,20 @@ const userSchema = new mongoose.Schema({
         default: 'acheteur'
     },
     phone: { type: String },
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: true },
+    addresses: [{
+        label: { type: String, default: 'Adresse' },
+        fullName: { type: String },
+        phone: { type: String },
+        street: { type: String, default: '' },
+        landmark: { type: String, default: '' },
+        city: { type: String, default: '' },
+        postalCode: { type: String, default: '' },
+        country: { type: String, default: 'Madagascar' },
+        latitude: { type: Number },
+        longitude: { type: Number },
+        isDefault: { type: Boolean, default: false }
+    }]
 }, { timestamps: true });
 
 // Encrypt password before save

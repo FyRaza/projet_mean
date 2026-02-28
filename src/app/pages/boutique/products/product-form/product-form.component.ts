@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { Product, ProductImage } from '../../../../core/models/product.model';
+import { BoutiqueOwnerService } from '../../../../shared/services/boutique-owner.service';
+import { AdminService } from '../../../../shared/services/admin.service';
 
 interface Category {
   id: string;
@@ -236,47 +238,6 @@ interface Category {
 
         <!-- Sidebar -->
         <div class="space-y-6">
-          <!-- Status -->
-          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Statut</h2>
-
-            <div class="space-y-3">
-              <label class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                     [class.border-brand-500]="product.status === 'active'"
-                     [class.bg-brand-50]="product.status === 'active'"
-                     [class.dark:bg-brand-900/20]="product.status === 'active'">
-                <input
-                  type="radio"
-                  name="status"
-                  value="active"
-                  [(ngModel)]="product.status"
-                  class="w-4 h-4 text-brand-600 focus:ring-brand-500"
-                />
-                <div>
-                  <p class="font-medium text-gray-900 dark:text-white">Actif</p>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">Visible et disponible a la vente</p>
-                </div>
-              </label>
-
-              <label class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                     [class.border-brand-500]="product.status === 'draft'"
-                     [class.bg-brand-50]="product.status === 'draft'"
-                     [class.dark:bg-brand-900/20]="product.status === 'draft'">
-                <input
-                  type="radio"
-                  name="status"
-                  value="draft"
-                  [(ngModel)]="product.status"
-                  class="w-4 h-4 text-brand-600 focus:ring-brand-500"
-                />
-                <div>
-                  <p class="font-medium text-gray-900 dark:text-white">Brouillon</p>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">Cache du catalogue</p>
-                </div>
-              </label>
-            </div>
-          </div>
-
           <!-- Category -->
           <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Organisation</h2>
@@ -411,9 +372,12 @@ interface Category {
 export class ProductFormComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private boutiqueOwnerService = inject(BoutiqueOwnerService);
+  private adminService = inject(AdminService);
 
   isEditMode = false;
   productId: string | null = null;
+  boutiqueId: string | null = null;
   showSuccess = signal(false);
 
   product: Partial<Product> = {
@@ -433,14 +397,7 @@ export class ProductFormComponent implements OnInit {
   productTags = signal<string[]>([]);
   newTag = '';
 
-  categories: Category[] = [
-    { id: 'cat-1', name: 'Mode' },
-    { id: 'cat-2', name: 'Electronique' },
-    { id: 'cat-3', name: 'Maison' },
-    { id: 'cat-4', name: 'Beaute' },
-    { id: 'cat-5', name: 'Sport' },
-    { id: 'cat-6', name: 'Alimentation' }
-  ];
+  categories: Category[] = [];
 
   // Sample images for demo
   sampleImages = [
@@ -454,39 +411,41 @@ export class ProductFormComponent implements OnInit {
   ngOnInit(): void {
     this.productId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.productId;
+    this.loadCategories();
+    this.loadMyBoutique();
 
     if (this.isEditMode && this.productId) {
       this.loadProduct(this.productId);
     }
   }
 
-  private loadProduct(id: string): void {
-    // Mock loading product for edit - Replace with actual API call
-    const mockProduct: Product = {
-      id: id,
-      boutiqueId: 'bout-1',
-      categoryId: 'cat-1',
-      name: 'T-shirt Premium Coton Bio',
-      slug: 't-shirt-premium-coton-bio',
-      description: 'T-shirt en coton bio de haute qualite. Tissu doux et respirant, parfait pour toutes les saisons. Coupe moderne et confortable.',
-      price: 35000,
-      compareAtPrice: 45000,
-      stock: 25,
-      lowStockThreshold: 5,
-      images: [
-        { id: '1', url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop', position: 0, isPrimary: true },
-        { id: '2', url: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=400&h=400&fit=crop', position: 1, isPrimary: false }
-      ],
-      status: 'active',
-      isFeatured: true,
-      tags: ['coton', 'bio', 'premium'],
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+  private loadCategories(): void {
+    this.adminService.getCategories('product' as any).subscribe({
+      next: (categories) => {
+        this.categories = categories.map((category) => ({ id: category.id, name: category.name }));
+      },
+      error: () => {
+        this.adminService.getCategories().subscribe((categories) => {
+          this.categories = categories.map((category) => ({ id: category.id, name: category.name }));
+        });
+      }
+    });
+  }
 
-    this.product = { ...mockProduct };
-    this.productImages.set(mockProduct.images || []);
-    this.productTags.set(mockProduct.tags || []);
+  private loadMyBoutique(): void {
+    this.boutiqueOwnerService.getMyBoutique().subscribe((boutique) => {
+      this.boutiqueId = boutique?.id || null;
+    });
+  }
+
+  private loadProduct(id: string): void {
+    this.boutiqueOwnerService.getProductById(id).subscribe({
+      next: (product) => {
+        this.product = { ...product };
+        this.productImages.set((product.images as ProductImage[]) || []);
+        this.productTags.set(product.tags || []);
+      }
+    });
   }
 
   addTag(): void {
@@ -585,6 +544,11 @@ export class ProductFormComponent implements OnInit {
   }
 
   private saveProduct(): void {
+    if (!this.isEditMode && !this.boutiqueId) {
+      alert('Impossible de déterminer votre boutique.');
+      return;
+    }
+
     // Prepare product data
     const productData: Partial<Product> = {
       ...this.product,
@@ -600,14 +564,39 @@ export class ProductFormComponent implements OnInit {
       productData.createdAt = new Date();
     }
 
-    // Mock save - Replace with actual API call
-    console.log('Saving product:', productData);
+    const payload = {
+      name: productData.name || '',
+      description: productData.description,
+      price: productData.price || 0,
+      compareAtPrice: productData.compareAtPrice,
+      stock: productData.stock || 0,
+      lowStockThreshold: productData.lowStockThreshold,
+      categoryId: productData.categoryId,
+      boutiqueId: this.boutiqueId || productData.boutiqueId || '',
+      images: (this.productImages() || []).map((image) => image.url),
+      tags: productData.tags || [],
+      isFeatured: !!productData.isFeatured,
+      status: ((productData.status === 'active' ||
+        productData.status === 'draft' ||
+        productData.status === 'out_of_stock' ||
+        productData.status === 'archived')
+        ? productData.status
+        : 'draft') as 'active' | 'draft' | 'out_of_stock' | 'archived'
+    };
 
-    this.showSuccess.set(true);
-    setTimeout(() => {
-      this.showSuccess.set(false);
-      this.router.navigate(['/boutique/products']);
-    }, 1500);
+    const request$ = this.isEditMode && this.productId
+      ? this.boutiqueOwnerService.updateProduct(this.productId, payload)
+      : this.boutiqueOwnerService.createProduct(payload as any);
+
+    request$.subscribe({
+      next: () => {
+        this.showSuccess.set(true);
+        setTimeout(() => {
+          this.showSuccess.set(false);
+          this.router.navigate(['/boutique/products']);
+        }, 1200);
+      }
+    });
   }
 
   private generateSlug(name: string): string {
