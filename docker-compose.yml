@@ -5,12 +5,16 @@ services:
     restart: unless-stopped
     environment:
       MONGO_INITDB_DATABASE: mall_manage_db
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-mall_admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-mall_secret_2026}
     volumes:
       - mongo_data:/data/db
-    ports:
-      - "27017:27017"
+    # Port MongoDB non exposé publiquement en production (seulement accessible par le backend via le réseau Docker)
+    # Décommenter la ligne ci-dessous uniquement pour le développement local
+    # ports:
+    #   - "27017:27017"
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test: ["CMD", "mongosh", "-u", "${MONGO_ROOT_USER:-mall_admin}", "-p", "${MONGO_ROOT_PASSWORD:-mall_secret_2026}", "--authenticationDatabase", "admin", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
       retries: 8
@@ -27,13 +31,33 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
-      MONGO_URI: mongodb://mongo:27017/mall_manage_db
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-mall_admin}:${MONGO_ROOT_PASSWORD:-mall_secret_2026}@mongo:27017/mall_manage_db?authSource=admin
       JWT_SECRET: ${JWT_SECRET:-replace_with_a_strong_secret}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost}
-      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      # Configuration SMTP
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-${SMTP_USER}}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Centre Commercial}
+      APP_NAME: ${APP_NAME:-Centre Commercial}
+      # Google OAuth
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      # Cloudinary (Upload d'images)
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
     ports:
       - "5000:5000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const req = http.get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1)); req.setTimeout(3000, () => process.exit(1));"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
@@ -42,7 +66,8 @@ services:
     container_name: mall-frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "80:80"
 

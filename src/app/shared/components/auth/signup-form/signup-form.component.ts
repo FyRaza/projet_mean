@@ -7,6 +7,7 @@ import { Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../services/auth.service';
 import { RegisterData } from '../../../../core/models/user.model';
+import { GoogleSigninButtonComponent } from '../google-signin-button/google-signin-button.component';
 
 
 @Component({
@@ -17,7 +18,8 @@ import { RegisterData } from '../../../../core/models/user.model';
     CheckboxComponent,
     InputFieldComponent,
     RouterModule,
-    FormsModule
+    FormsModule,
+    GoogleSigninButtonComponent
 ],
   templateUrl: './signup-form.component.html',
   styles: ``
@@ -61,8 +63,16 @@ export class SignupFormComponent {
     this.errorMessage = '';
   }
 
-  onGoogleSignup() {
-    this.errorMessage = 'Connexion Google non configuree pour le moment.';
+  handleGoogleSuccess(result: { user: any; token: string }): void {
+    this.errorMessage = '';
+    this.successMessage = 'Inscription Google réussie ! Redirection...';
+    setTimeout(() => {
+      this.authService.navigateToDefaultRoute();
+    }, 500);
+  }
+
+  handleGoogleError(error: string): void {
+    this.errorMessage = error || 'Erreur d\'authentification Google';
     this.successMessage = '';
   }
 

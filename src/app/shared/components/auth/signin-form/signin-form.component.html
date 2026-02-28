@@ -65,6 +65,12 @@
       </div>
     </div>
 
+    <!-- Google Sign-In Button -->
+    <app-google-signin-button
+      (onSuccess)="handleGoogleSuccess($event)"
+      (onError)="handleGoogleError($event)"
+    ></app-google-signin-button>
+
     <!-- Divider -->
     <div class="relative py-3 sm:py-5">
       <div class="absolute inset-0 flex items-center">

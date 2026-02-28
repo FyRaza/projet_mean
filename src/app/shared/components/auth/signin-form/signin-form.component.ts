@@ -7,6 +7,7 @@ import { InputFieldComponent } from '../../form/input/input-field.component';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../services/auth.service';
+import { GoogleSigninButtonComponent } from '../google-signin-button/google-signin-button.component';
 
 @Component({
   selector: 'app-signin-form',
@@ -18,7 +19,8 @@ import { AuthService } from '../../../services/auth.service';
     ButtonComponent,
     InputFieldComponent,
     RouterModule,
-    FormsModule
+    FormsModule,
+    GoogleSigninButtonComponent
   ],
   templateUrl: './signin-form.component.html',
   styles: ``
@@ -98,5 +100,18 @@ export class SigninFormComponent {
         console.error('Login error:', error);
       }
     });
+  }
+
+  handleGoogleSuccess(result: { user: any; token: string }): void {
+    this.errorMessage = '';
+    this.successMessage = 'Connexion Google réussie ! Redirection...';
+    setTimeout(() => {
+      this.authService.navigateToDefaultRoute();
+    }, 500);
+  }
+
+  handleGoogleError(error: string): void {
+    this.errorMessage = error || 'Erreur d\'authentification Google';
+    this.successMessage = '';
   }
 }

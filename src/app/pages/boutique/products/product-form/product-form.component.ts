@@ -5,6 +5,7 @@ import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { Product, ProductImage } from '../../../../core/models/product.model';
 import { BoutiqueOwnerService } from '../../../../shared/services/boutique-owner.service';
 import { AdminService } from '../../../../shared/services/admin.service';
+import { UploadService } from '../../../../shared/services/upload.service';
 
 interface Category {
   id: string;
@@ -127,13 +128,30 @@ interface Category {
 
               <!-- Add Image Button -->
               <button
-                (click)="addSampleImage()"
-                class="aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/10 transition-colors">
-                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                <span class="text-sm text-gray-500 dark:text-gray-400">Ajouter</span>
+                (click)="fileInput.click()"
+                [disabled]="isUploading()"
+                class="aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                @if (isUploading()) {
+                  <svg class="w-8 h-8 text-brand-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span class="text-sm text-brand-500">Upload...</span>
+                } @else {
+                  <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span class="text-sm text-gray-500 dark:text-gray-400">Ajouter</span>
+                }
               </button>
+              <input
+                #fileInput
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                (change)="onFilesSelected($event)"
+                class="hidden"
+              />
             </div>
 
             <p class="text-sm text-gray-500 dark:text-gray-400">
@@ -374,6 +392,7 @@ export class ProductFormComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private boutiqueOwnerService = inject(BoutiqueOwnerService);
   private adminService = inject(AdminService);
+  private uploadService = inject(UploadService);
 
   isEditMode = false;
   productId: string | null = null;
@@ -399,14 +418,8 @@ export class ProductFormComponent implements OnInit {
 
   categories: Category[] = [];
 
-  // Sample images for demo
-  sampleImages = [
-    'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop'
-  ];
+  isUploading = signal(false);
+  uploadError = signal('');
 
   ngOnInit(): void {
     this.productId = this.route.snapshot.paramMap.get('id');
@@ -460,18 +473,62 @@ export class ProductFormComponent implements OnInit {
     this.productTags.update(tags => tags.filter(t => t !== tag));
   }
 
-  addSampleImage(): void {
+  onFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
     const currentImages = this.productImages();
-    if (currentImages.length < 8) {
-      const randomIndex = Math.floor(Math.random() * this.sampleImages.length);
-      const newImage: ProductImage = {
-        id: 'img-' + Date.now(),
-        url: this.sampleImages[randomIndex],
-        position: currentImages.length,
-        isPrimary: currentImages.length === 0
-      };
-      this.productImages.update(images => [...images, newImage]);
+    const maxAllowed = 8 - currentImages.length;
+    const files = Array.from(input.files).slice(0, maxAllowed);
+
+    if (files.length === 0) {
+      alert('Vous avez atteint le maximum de 8 images');
+      return;
     }
+
+    this.isUploading.set(true);
+    this.uploadError.set('');
+
+    if (files.length === 1) {
+      this.uploadService.uploadImage(files[0], 'product').subscribe({
+        next: (result) => {
+          const newImage: ProductImage = {
+            id: 'img-' + Date.now(),
+            url: result.url,
+            position: currentImages.length,
+            isPrimary: currentImages.length === 0
+          };
+          this.productImages.update(images => [...images, newImage]);
+          this.isUploading.set(false);
+        },
+        error: (err) => {
+          this.isUploading.set(false);
+          this.uploadError.set(err.error?.message || 'Erreur lors de l\'upload');
+          alert('Erreur upload: ' + (err.error?.message || 'Erreur inconnue'));
+        }
+      });
+    } else {
+      this.uploadService.uploadMultipleImages(files, 'product').subscribe({
+        next: (result) => {
+          const newImages: ProductImage[] = result.images.map((img, index) => ({
+            id: 'img-' + Date.now() + '-' + index,
+            url: img.url,
+            position: currentImages.length + index,
+            isPrimary: currentImages.length === 0 && index === 0
+          }));
+          this.productImages.update(images => [...images, ...newImages]);
+          this.isUploading.set(false);
+        },
+        error: (err) => {
+          this.isUploading.set(false);
+          this.uploadError.set(err.error?.message || 'Erreur lors de l\'upload');
+          alert('Erreur upload: ' + (err.error?.message || 'Erreur inconnue'));
+        }
+      });
+    }
+
+    // Reset l'input file pour permettre de sélectionner le même fichier
+    input.value = '';
   }
 
   removeImage(imageId: string): void {

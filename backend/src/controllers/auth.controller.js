@@ -1,11 +1,14 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
+const { sendWelcomeEmail, sendPasswordResetEmail } = require('../services/email.service');
 
-// Helper function to generate JWT
+// Helper function to generate JWT (7 days instead of 30 for better security)
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
-        expiresIn: '30d',
+        expiresIn: '7d',
     });
 };
 
@@ -17,6 +20,7 @@ const formatUser = (user) => ({
     role: user.role,
     phone: user.phone,
     isActive: user.isActive,
+    authProvider: user.authProvider || 'local',
     addresses: user.addresses || [],
     createdAt: user.createdAt,
     updatedAt: user.updatedAt
@@ -29,11 +33,30 @@ exports.register = async (req, res) => {
     try {
         const { firstName, lastName, email, password, role, phone } = req.body;
 
+        // Input validation
+        if (!firstName || typeof firstName !== 'string' || firstName.trim().length < 1 || firstName.trim().length > 50) {
+            return res.status(400).json({ message: 'Le prénom est requis (1-50 caractères)' });
+        }
+        if (!lastName || typeof lastName !== 'string' || lastName.trim().length < 1 || lastName.trim().length > 50) {
+            return res.status(400).json({ message: 'Le nom est requis (1-50 caractères)' });
+        }
+        if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.status(400).json({ message: 'Email invalide' });
+        }
+        if (!password || typeof password !== 'string' || password.length < 6 || password.length > 128) {
+            return res.status(400).json({ message: 'Le mot de passe doit contenir entre 6 et 128 caractères' });
+        }
+
         // Check if user exists
-        const userExists = await User.findOne({ email });
+        const userExists = await User.findOne({ email: email.toLowerCase() });
         if (userExists) {
             return res.status(400).json({ message: 'User already exists' });
         }
+
+        // Sanitize role: only 'acheteur' and 'boutique' are allowed via self-registration.
+        // 'admin' accounts can only be created directly in the database or by an existing admin.
+        const allowedSelfRegisterRoles = ['acheteur', 'boutique'];
+        const sanitizedRole = allowedSelfRegisterRoles.includes(role) ? role : 'acheteur';
 
         // Create user
         const user = await User.create({
@@ -41,11 +64,17 @@ exports.register = async (req, res) => {
             lastName,
             email,
             password,
-            role: role || 'acheteur', // default to acheteur if not specified
-            phone
+            role: sanitizedRole,
+            phone,
+            authProvider: 'local'
         });
 
         if (user) {
+            // Envoyer l'email de bienvenue (ne pas bloquer si l'email échoue)
+            sendWelcomeEmail(user).catch(err => {
+                console.error('Error sending welcome email:', err);
+            });
+
             res.status(201).json({
                 user: formatUser(user),
                 token: generateToken(user._id)
@@ -65,8 +94,16 @@ exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
+        // Input validation
+        if (!email || typeof email !== 'string') {
+            return res.status(400).json({ message: 'Email requis' });
+        }
+        if (!password || typeof password !== 'string') {
+            return res.status(400).json({ message: 'Mot de passe requis' });
+        }
+
         // Check for user email
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email: email.toLowerCase() });
 
         if (user && (await user.matchPassword(password))) {
             res.json({
@@ -287,5 +324,203 @@ exports.getBoutiqueOwners = async (req, res) => {
         res.json(owners);
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Forgot password - Request password reset
+// @route   POST /api/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+
+        const user = await User.findOne({ email });
+        
+        // Pour des raisons de sécurité, on ne révèle pas si l'email existe ou non
+        if (!user) {
+            return res.json({ 
+                message: 'If that email exists, a password reset link has been sent.' 
+            });
+        }
+
+        // Générer un token de réinitialisation
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        
+        // Hasher le token et le sauvegarder dans la base
+        user.resetPasswordToken = crypto
+            .createHash('sha256')
+            .update(resetToken)
+            .digest('hex');
+        user.resetPasswordExpire = Date.now() + 60 * 60 * 1000; // 1 heure
+
+        await user.save({ validateBeforeSave: false });
+
+        // Envoyer l'email avec le token en clair
+        try {
+            await sendPasswordResetEmail(user, resetToken);
+            res.json({ 
+                message: 'If that email exists, a password reset link has been sent.' 
+            });
+        } catch (error) {
+            // Si l'email échoue, réinitialiser les champs
+            user.resetPasswordToken = undefined;
+            user.resetPasswordExpire = undefined;
+            await user.save({ validateBeforeSave: false });
+            
+            console.error('Error sending password reset email:', error);
+            return res.status(500).json({ 
+                message: 'Error sending email. Please try again later.' 
+            });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Reset password with token
+// @route   PUT /api/auth/reset-password
+// @access  Public
+exports.resetPassword = async (req, res) => {
+    try {
+        const { token, password } = req.body;
+
+        if (!token || !password) {
+            return res.status(400).json({ 
+                message: 'Token and password are required' 
+            });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({ 
+                message: 'Password must be at least 6 characters' 
+            });
+        }
+
+        // Hasher le token pour le comparer avec celui en base
+        const hashedToken = crypto
+            .createHash('sha256')
+            .update(token)
+            .digest('hex');
+
+        // Trouver l'utilisateur avec ce token valide et non expiré
+        const user = await User.findOne({
+            resetPasswordToken: hashedToken,
+            resetPasswordExpire: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ 
+                message: 'Invalid or expired reset token' 
+            });
+        }
+
+        // Mettre à jour le mot de passe
+        user.password = password;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpire = undefined;
+
+        await user.save();
+
+        res.json({ 
+            message: 'Password reset successful. You can now login with your new password.' 
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Authenticate with Google OAuth
+// @route   POST /api/auth/google
+// @access  Public
+exports.googleAuth = async (req, res) => {
+    try {
+        const { idToken } = req.body;
+
+        if (!idToken) {
+            return res.status(400).json({ message: 'Google ID token is required' });
+        }
+
+        // Vérifier le token Google
+        const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+        
+        let ticket;
+        try {
+            ticket = await client.verifyIdToken({
+                idToken,
+                audience: process.env.GOOGLE_CLIENT_ID
+            });
+        } catch (error) {
+            return res.status(401).json({ 
+                message: 'Invalid Google token',
+                error: error.message 
+            });
+        }
+
+        const payload = ticket.getPayload();
+        const { sub: googleId, email, given_name: firstName, family_name: lastName, picture } = payload;
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email not provided by Google' });
+        }
+
+        // Chercher un utilisateur existant par email ou googleId
+        let user = await User.findOne({
+            $or: [
+                { email },
+                { googleId }
+            ]
+        });
+
+        if (user) {
+            // Utilisateur existe déjà
+            // Mettre à jour googleId si absent
+            if (!user.googleId && googleId) {
+                user.googleId = googleId;
+                user.authProvider = 'google';
+                await user.save();
+            }
+
+            // Envoyer email de bienvenue seulement si c'est une nouvelle connexion Google
+            if (user.authProvider === 'local' && !user.googleId) {
+                // L'utilisateur avait un compte local, maintenant il se connecte avec Google
+                user.googleId = googleId;
+                user.authProvider = 'google';
+                await user.save();
+            }
+        } else {
+            // Créer un nouvel utilisateur
+            user = await User.create({
+                firstName: firstName || 'Utilisateur',
+                lastName: lastName || 'Google',
+                email,
+                googleId,
+                authProvider: 'google',
+                role: 'acheteur', // Par défaut, les utilisateurs Google sont des acheteurs
+                // Pas de password pour les utilisateurs Google
+            });
+
+            // Envoyer l'email de bienvenue (ne pas bloquer si l'email échoue)
+            sendWelcomeEmail(user).catch(err => {
+                console.error('Error sending welcome email:', err);
+            });
+        }
+
+        // Générer le token JWT
+        const token = generateToken(user._id);
+
+        res.json({
+            user: formatUser(user),
+            token
+        });
+    } catch (error) {
+        console.error('Google auth error:', error);
+        res.status(500).json({ 
+            message: 'Error authenticating with Google',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 };

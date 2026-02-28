@@ -15,6 +15,7 @@ export interface CreateOrderPayload {
     items: { product: string; quantity: number }[];
     boutiqueId: string;
     fulfillmentType?: 'delivery' | 'pickup';
+    paymentMethod?: string;
     shippingAddress?: {
         street: string;
         landmark?: string;
@@ -79,6 +80,15 @@ export class OrderService {
     updateOrderStatus(orderId: string, status: OrderStatus): Observable<Order> {
         const backendStatus = status === 'confirmed' ? 'processing' : status;
         return this.http.put<any>(`${this.API_URL}/${orderId}/status`, { status: backendStatus }).pipe(
+            map(o => this.mapOrder(o))
+        );
+    }
+
+    // ─────────────────────────────────────────────
+    // Cancel order (client only, pending orders)
+    // ─────────────────────────────────────────────
+    cancelOrder(orderId: string): Observable<Order> {
+        return this.http.put<any>(`${this.API_URL}/${orderId}/cancel`, {}).pipe(
             map(o => this.mapOrder(o))
         );
     }

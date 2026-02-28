@@ -11,7 +11,10 @@ const {
     addMyAddress,
     updateMyAddress,
     deleteMyAddress,
-    getBoutiqueOwners
+    getBoutiqueOwners,
+    forgotPassword,
+    resetPassword,
+    googleAuth
 } = require('../controllers/auth.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 
@@ -156,5 +159,99 @@ router.post('/me/addresses', protect, addMyAddress);
 router.put('/me/addresses/:addressId', protect, updateMyAddress);
 router.delete('/me/addresses/:addressId', protect, deleteMyAddress);
 router.get('/boutique-owners', protect, authorize('admin'), getBoutiqueOwners);
+
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Demander une réinitialisation de mot de passe
+ *     description: Envoie un email avec un lien de réinitialisation de mot de passe
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Email envoyé (même message si l'email n'existe pas pour la sécurité)
+ *       500:
+ *         description: Erreur serveur
+ */
+router.post('/forgot-password', forgotPassword);
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   put:
+ *     summary: Réinitialiser le mot de passe avec un token
+ *     description: Réinitialise le mot de passe en utilisant le token reçu par email
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - password
+ *             properties:
+ *               token:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *     responses:
+ *       200:
+ *         description: Mot de passe réinitialisé avec succès
+ *       400:
+ *         description: Token invalide ou expiré
+ *       500:
+ *         description: Erreur serveur
+ */
+router.put('/reset-password', resetPassword);
+
+/**
+ * @swagger
+ * /api/auth/google:
+ *   post:
+ *     summary: Authentification avec Google OAuth
+ *     description: Authentifie un utilisateur avec Google OAuth 2.0. Crée un compte automatiquement si l'utilisateur n'existe pas.
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idToken
+ *             properties:
+ *               idToken:
+ *                 type: string
+ *                 description: Token ID Google obtenu depuis le client (frontend)
+ *     responses:
+ *       200:
+ *         description: Authentification réussie
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Token manquant ou email non fourni par Google
+ *       401:
+ *         description: Token Google invalide
+ *       500:
+ *         description: Erreur serveur
+ */
+router.post('/google', googleAuth);
 
 module.exports = router;

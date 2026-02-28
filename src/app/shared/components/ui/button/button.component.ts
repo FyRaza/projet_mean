@@ -20,6 +20,7 @@ export class ButtonComponent {
   @Input() variant: 'primary' | 'outline' = 'primary';
   @Input() disabled = false;
   @Input() className = '';
+  @Input() type: 'button' | 'submit' | 'reset' = 'button';
   @Input() startIcon?: string; // SVG or icon class, or use ng-content for more flexibility
   @Input() endIcon?: string;
 

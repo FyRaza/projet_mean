@@ -140,9 +140,18 @@ exports.createProduct = async (req, res) => {
         const { name, price, description, shortDescription, categoryId, boutiqueId, stock, images, tags, isFeatured, sku, status, compareAtPrice, lowStockThreshold } = req.body;
         const allowedStatuses = ['active', 'draft', 'archived', 'out_of_stock'];
 
+        // Generate unique slug
+        let baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        let slug = baseSlug;
+        let slugCounter = 0;
+        while (await Product.findOne({ slug })) {
+            slugCounter++;
+            slug = `${baseSlug}-${slugCounter}`;
+        }
+
         const product = new Product({
             name,
-            slug: name.toLowerCase().replace(/ /g, '-'),
+            slug,
             price,
             description,
             shortDescription,

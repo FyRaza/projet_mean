@@ -20,4 +20,8 @@ const boutiqueSchema = new mongoose.Schema({
     categoryId: { type: String }
 }, { timestamps: true });
 
+// Indexes for performance
+boutiqueSchema.index({ owner: 1 });
+boutiqueSchema.index({ status: 1 });
+
 module.exports = mongoose.model('Boutique', boutiqueSchema);

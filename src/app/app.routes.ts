@@ -123,6 +123,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/auth-pages/sign-up-boutique/sign-up-boutique.component').then(m => m.SignUpBoutiqueComponent),
     title: 'Inscription Boutique | Centre Commercial'
   },
+  {
+    path: 'reset-password',
+    loadComponent: () => import('./pages/auth-pages/reset-password/reset-password.component').then(m => m.ResetPasswordComponent),
+    title: 'Réinitialisation de mot de passe | Centre Commercial'
+  },
 
   // ============================================
   // ADMIN ROUTES - Centre Commercial Admin
@@ -254,6 +259,17 @@ export const routes: Routes = [
         path: 'statistics',
         loadComponent: () => import('./pages/boutique/statistics/boutique-statistics.component').then(m => m.BoutiqueStatisticsComponent),
         title: 'Statistiques | Ma Boutique'
+      },
+      // ── POS (Caisse) ──
+      {
+        path: 'pos',
+        loadComponent: () => import('./pages/boutique/pos/pos-cashier.component').then(m => m.PosCashierComponent),
+        title: 'Caisse | Ma Boutique'
+      },
+      {
+        path: 'pos/history',
+        loadComponent: () => import('./pages/boutique/pos/pos-history.component').then(m => m.PosHistoryComponent),
+        title: 'Historique Ventes | Ma Boutique'
       }
     ]
   },

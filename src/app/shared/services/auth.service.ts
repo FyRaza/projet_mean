@@ -90,6 +90,22 @@ export class AuthService {
     );
   }
 
+  loginWithGoogle(idToken: string): Observable<AuthResponse> {
+    this.loadingSubject.next(true);
+
+    return this.http.post<AuthResponse>(`${this.API_URL}/google`, { idToken }).pipe(
+      tap({
+        next: (response) => {
+          this.setAuth(response);
+          this.loadingSubject.next(false);
+        },
+        error: () => {
+          this.loadingSubject.next(false);
+        }
+      })
+    );
+  }
+
   logout(): void {
     this.clearAuth();
     this.router.navigate(['/signin']);
@@ -180,6 +196,14 @@ export class AuthService {
 
   deleteAddress(addressId: string): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`${this.API_URL}/me/addresses/${addressId}`);
+  }
+
+  forgotPassword(email: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.API_URL}/forgot-password`, { email });
+  }
+
+  resetPassword(token: string, password: string): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.API_URL}/reset-password`, { token, password });
   }
 
   private mapAddress(address: any): Address {

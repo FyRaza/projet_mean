@@ -21,7 +21,7 @@ interface Address {
   isDefault: boolean;
 }
 
-type PaymentMethod = 'cash' | 'mobile_money' | 'card';
+type PaymentMethod = 'cash' | 'mobile_money' | 'card' | 'cash_on_pickup';
 type DeliveryMethod = 'delivery' | 'pickup';
 
 @Component({
@@ -297,32 +297,58 @@ type DeliveryMethod = 'delivery' | 'pickup';
               </div>
               <div class="p-6">
                 <div class="space-y-3">
-                  @for (method of paymentMethods; track method.id) {
+                  @for (method of getAvailablePaymentMethods(); track method.id) {
                     <label
-                      class="flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors"
-                      [class]="selectedPaymentMethod() === method.id
-                        ? 'border-brand-600 bg-brand-50 dark:bg-brand-900/20'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-600'"
+                      class="flex items-center gap-4 p-4 border rounded-lg transition-colors relative"
+                      [class]="method.available && ((selectedDeliveryMethod() === 'pickup' && method.id === 'cash_on_pickup') || (selectedDeliveryMethod() === 'delivery' && selectedPaymentMethod() === method.id))
+                        ? 'border-brand-600 bg-brand-50 dark:bg-brand-900/20 cursor-pointer'
+                        : method.available
+                        ? 'border-gray-200 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-600 cursor-pointer'
+                        : 'border-gray-200 dark:border-gray-700 opacity-60 cursor-not-allowed'"
                     >
                       <input
                         type="radio"
                         name="payment"
                         [value]="method.id"
-                        [checked]="selectedPaymentMethod() === method.id"
+                        [checked]="(selectedDeliveryMethod() === 'pickup' && method.id === 'cash_on_pickup') || (selectedDeliveryMethod() === 'delivery' && selectedPaymentMethod() === method.id)"
+                        [disabled]="!method.available"
                         (change)="selectPaymentMethod(method.id)"
+                        class="disabled:cursor-not-allowed"
                       />
                       <div class="w-10 h-10 rounded-lg flex items-center justify-center" [class]="method.bgColor">
                         <svg class="w-5 h-5" [class]="method.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" [attr.d]="method.icon" />
                         </svg>
                       </div>
-                      <div>
-                        <p class="font-medium text-gray-900 dark:text-white">{{ method.name }}</p>
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                          <p class="font-medium text-gray-900 dark:text-white">{{ method.name }}</p>
+                          @if (!method.available) {
+                            <span class="px-2 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded">
+                              Pas encore disponible
+                            </span>
+                          }
+                        </div>
                         <p class="text-sm text-gray-500 dark:text-gray-400">{{ method.description }}</p>
                       </div>
                     </label>
                   }
                 </div>
+                
+                @if (selectedDeliveryMethod() === 'pickup') {
+                  <div class="mt-4 p-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
+                    <div class="flex items-start gap-3">
+                      <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div class="text-sm text-blue-700 dark:text-blue-300">
+                        <p class="font-medium mb-1">Important :</p>
+                        <p class="mb-2">La commande s'annulera automatiquement si vous ne la récupérez pas après 24 heures.</p>
+                        <p class="text-xs text-blue-600 dark:text-blue-400">Note : Si vous payez directement le produit via paiement en ligne (pas encore disponible pour le moment), vous pourrez le récupérer à tout moment.</p>
+                      </div>
+                    </div>
+                  </div>
+                }
               </div>
             </div>
 
@@ -515,7 +541,17 @@ export class CheckoutComponent implements OnInit {
       description: 'Payez en especes lors de la reception',
       icon: 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z',
       bgColor: 'bg-green-100 dark:bg-green-900/30',
-      iconColor: 'text-green-600 dark:text-green-400'
+      iconColor: 'text-green-600 dark:text-green-400',
+      available: true
+    },
+    {
+      id: 'cash_on_pickup' as PaymentMethod,
+      name: 'Paiement au retrait',
+      description: 'Payez en especes lors du retrait en boutique',
+      icon: 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z',
+      bgColor: 'bg-green-100 dark:bg-green-900/30',
+      iconColor: 'text-green-600 dark:text-green-400',
+      available: true
     },
     {
       id: 'mobile_money' as PaymentMethod,
@@ -523,15 +559,17 @@ export class CheckoutComponent implements OnInit {
       description: 'Orange Money, Mvola, Airtel Money',
       icon: 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z',
       bgColor: 'bg-orange-100 dark:bg-orange-900/30',
-      iconColor: 'text-orange-600 dark:text-orange-400'
+      iconColor: 'text-orange-600 dark:text-orange-400',
+      available: false
     },
     {
       id: 'card' as PaymentMethod,
-      name: 'Carte bancaire',
-      description: 'Visa, Mastercard (bientot disponible)',
+      name: 'Carte bancaire / Paiement en ligne',
+      description: 'Visa, Mastercard',
       icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
       bgColor: 'bg-blue-100 dark:bg-blue-900/30',
-      iconColor: 'text-blue-600 dark:text-blue-400'
+      iconColor: 'text-blue-600 dark:text-blue-400',
+      available: false
     }
   ];
 
@@ -576,15 +614,37 @@ export class CheckoutComponent implements OnInit {
   }
 
   selectPaymentMethod(method: PaymentMethod): void {
-    this.selectedPaymentMethod.set(method);
+    const methodObj = this.paymentMethods.find(m => m.id === method);
+    if (methodObj && methodObj.available) {
+      this.selectedPaymentMethod.set(method);
+    }
   }
 
   selectDeliveryMethod(method: DeliveryMethod): void {
     this.selectedDeliveryMethod.set(method);
+    // Si retrait sélectionné, forcer le paiement au retrait
+    if (method === 'pickup') {
+      this.selectedPaymentMethod.set('cash_on_pickup');
+    } else if (method === 'delivery') {
+      // Si on revient à livraison et que c'était cash_on_pickup, passer à cash
+      if (this.selectedPaymentMethod() === 'cash_on_pickup') {
+        this.selectedPaymentMethod.set('cash');
+      }
+    }
   }
 
   isDeliverySelected(): boolean {
     return this.selectedDeliveryMethod() === 'delivery';
+  }
+
+  getAvailablePaymentMethods() {
+    if (this.selectedDeliveryMethod() === 'pickup') {
+      // Pour retrait, on affiche uniquement cash_on_pickup
+      return this.paymentMethods.filter(m => m.id === 'cash_on_pickup');
+    } else {
+      // Pour livraison, on affiche tous sauf cash_on_pickup
+      return this.paymentMethods.filter(m => m.id !== 'cash_on_pickup');
+    }
   }
 
   saveNewAddress(): void {
@@ -627,7 +687,9 @@ export class CheckoutComponent implements OnInit {
 
   canPlaceOrder(): boolean {
     const hasAddress = this.isDeliverySelected() ? !!this.selectedAddressId() : true;
-    return hasAddress && !!this.selectedPaymentMethod();
+    // Pour pickup, cash_on_pickup est automatiquement sélectionné
+    const hasPayment = this.isDeliverySelected() ? !!this.selectedPaymentMethod() : true;
+    return hasAddress && hasPayment;
   }
 
   getCheckoutValidationMessage(): string {
@@ -659,10 +721,19 @@ export class CheckoutComponent implements OnInit {
       longitude: addr.longitude
     } : undefined;
 
+    // Déterminer le paymentMethod à envoyer
+    let paymentMethodToSend: string = this.selectedPaymentMethod() || 'cash';
+    if (this.selectedDeliveryMethod() === 'pickup') {
+      paymentMethodToSend = 'cash_on_pickup';
+    } else if (paymentMethodToSend === 'cash_on_pickup') {
+      paymentMethodToSend = 'cash';
+    }
+
     this.cartService.checkout({
       fulfillmentType: this.selectedDeliveryMethod(),
       shippingAddress,
-      notes: this.orderNotes || undefined
+      notes: this.orderNotes || undefined,
+      paymentMethod: paymentMethodToSend
     }).subscribe({
       next: (orderIds) => {
         // orderIds is an array of created order IDs from the backend

@@ -158,7 +158,7 @@ export class BoutiqueOwnerService {
             shortDescription: p.shortDescription,
             price: p.price,
             compareAtPrice: p.compareAtPrice,
-            images: p.images || [],
+            images: this.normalizeImages(p.images),
             boutiqueId: p.boutique?._id || p.boutique,
             boutiqueName: p.boutique?.name,
             boutiqueSlug: p.boutique?.slug,
@@ -173,5 +173,22 @@ export class BoutiqueOwnerService {
             createdAt: new Date(p.createdAt),
             updatedAt: new Date(p.updatedAt)
         };
+    }
+
+    /** Convertit les images (string ou objet) en ProductImage[] */
+    private normalizeImages(images: any[]): import('../../core/models/product.model').ProductImage[] {
+        if (!images || !Array.isArray(images)) return [];
+        return images.map((img: any, index: number) => {
+            if (typeof img === 'string') {
+                return { id: 'img-' + index, url: img, position: index, isPrimary: index === 0 };
+            }
+            return {
+                id: img.id || img._id || 'img-' + index,
+                url: img.url || img,
+                alt: img.alt,
+                position: img.position ?? index,
+                isPrimary: img.isPrimary ?? (index === 0)
+            };
+        });
     }
 }

@@ -26,4 +26,8 @@ const productSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+// Indexes for performance
+productSchema.index({ boutique: 1, status: 1, createdAt: -1 });
+productSchema.index({ name: 'text', sku: 'text' }); // Text search for POS
+
 module.exports = mongoose.model('Product', productSchema);

@@ -59,9 +59,18 @@ exports.createBoutique = async (req, res) => {
             }
         }
 
+        // Generate unique slug
+        let baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        let slug = baseSlug;
+        let counter = 0;
+        while (await Boutique.findOne({ slug })) {
+            counter++;
+            slug = `${baseSlug}-${counter}`;
+        }
+
         const boutique = new Boutique({
             name,
-            slug: name.toLowerCase().replace(/ /g, '-'),
+            slug,
             description,
             contactEmail,
             contactPhone,

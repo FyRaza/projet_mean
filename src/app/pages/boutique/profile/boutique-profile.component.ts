@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BoutiqueOwnerService } from '../../../shared/services/boutique-owner.service';
 import { AdminService } from '../../../shared/services/admin.service';
+import { UploadService } from '../../../shared/services/upload.service';
 
 interface OpeningHour {
   day: string;
@@ -283,12 +284,24 @@ interface BoutiqueProfile {
                   }
                 </div>
                 <button
-                  (click)="changeLogo()"
-                  class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  Changer le logo
+                  (click)="logoInput.click()"
+                  [disabled]="isUploadingLogo()"
+                  class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50">
+                  @if (isUploadingLogo()) {
+                    Upload en cours...
+                  } @else {
+                    Changer le logo
+                  }
                 </button>
+                <input
+                  #logoInput
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  (change)="onLogoSelected($event)"
+                  class="hidden"
+                />
                 <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  JPG, PNG. Max 2 Mo. 400x400px recommande.
+                  JPG, PNG, WebP. Max 5 Mo. 400x400px recommande.
                 </p>
               </div>
             </div>
@@ -309,12 +322,24 @@ interface BoutiqueProfile {
                 }
               </div>
               <button
-                (click)="changeBanner()"
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                Changer la banniere
+                (click)="bannerInput.click()"
+                [disabled]="isUploadingBanner()"
+                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50">
+                @if (isUploadingBanner()) {
+                  Upload en cours...
+                } @else {
+                  Changer la banniere
+                }
               </button>
+              <input
+                #bannerInput
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                (change)="onBannerSelected($event)"
+                class="hidden"
+              />
               <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
-                1200x400px recommande.
+                JPG, PNG, WebP. Max 5 Mo. 1200x400px recommande.
               </p>
             </div>
 
@@ -421,12 +446,15 @@ interface BoutiqueProfile {
 export class BoutiqueProfileComponent implements OnInit {
   private boutiqueOwnerService = inject(BoutiqueOwnerService);
   private adminService = inject(AdminService);
+  private uploadService = inject(UploadService);
   private boutiqueId: string | null = null;
   private categoryMap: Record<string, string> = {};
   private categoryNameToId: Record<string, string> = {};
 
   activeTab = signal<'general' | 'hours'>('general');
   showSuccess = signal(false);
+  isUploadingLogo = signal(false);
+  isUploadingBanner = signal(false);
 
   tabs = [
     { id: 'general' as const, label: 'Informations generales' },
@@ -491,18 +519,46 @@ export class BoutiqueProfileComponent implements OnInit {
     });
   }
 
-  changeLogo(): void {
-    const url = prompt('URL du logo', this.profile.logo || '');
-    if (url !== null) {
-      this.profile.logo = url.trim();
-    }
+  onLogoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    this.isUploadingLogo.set(true);
+
+    this.uploadService.uploadImage(file, 'logo').subscribe({
+      next: (result) => {
+        this.profile.logo = result.url;
+        this.isUploadingLogo.set(false);
+      },
+      error: (err) => {
+        this.isUploadingLogo.set(false);
+        alert('Erreur upload logo: ' + (err.error?.message || 'Erreur inconnue'));
+      }
+    });
+
+    input.value = '';
   }
 
-  changeBanner(): void {
-    const url = prompt('URL de la bannière', this.profile.banner || '');
-    if (url !== null) {
-      this.profile.banner = url.trim();
-    }
+  onBannerSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    this.isUploadingBanner.set(true);
+
+    this.uploadService.uploadImage(file, 'banner').subscribe({
+      next: (result) => {
+        this.profile.banner = result.url;
+        this.isUploadingBanner.set(false);
+      },
+      error: (err) => {
+        this.isUploadingBanner.set(false);
+        alert('Erreur upload bannière: ' + (err.error?.message || 'Erreur inconnue'));
+      }
+    });
+
+    input.value = '';
   }
 
   saveProfile(): void {

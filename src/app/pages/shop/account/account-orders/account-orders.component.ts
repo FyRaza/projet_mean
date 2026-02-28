@@ -374,17 +374,25 @@ export class AccountOrdersComponent implements OnInit {
   }
 
   cancelOrder(order: Order): void {
+    // Vérifier que le statut est bien "pending"
+    if (order.status !== 'pending') {
+      alert('Impossible d\'annuler cette commande. Seules les commandes en attente peuvent être annulées.');
+      return;
+    }
+
     if (confirm('Voulez-vous vraiment annuler cette commande ?')) {
-      this.orderService.updateOrderStatus(order.id, 'cancelled').subscribe({
+      this.orderService.cancelOrder(order.id).subscribe({
         next: (updatedOrder) => {
           const updatedOrders = this.orders().map(o =>
-            o.id === order.id ? { ...o, status: 'cancelled' as OrderStatus } : o
+            o.id === order.id ? updatedOrder : o
           );
           this.orders.set(updatedOrders);
+          alert('Commande annulée avec succès.');
         },
         error: (err) => {
           console.error(`Erreur lors de l'annulation`, err);
-          alert(`Impossible d'annuler la commande. Veuillez réessayer.`);
+          const errorMessage = err.error?.message || 'Impossible d\'annuler la commande. Veuillez réessayer.';
+          alert(errorMessage);
         }
       });
     }

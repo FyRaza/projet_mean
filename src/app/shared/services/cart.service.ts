@@ -263,6 +263,7 @@ export class CartService {
   checkout(options?: {
     fulfillmentType?: 'delivery' | 'pickup';
     notes?: string;
+    paymentMethod?: string;
     shippingAddress?: {
     street: string;
     landmark?: string;
@@ -297,7 +298,8 @@ export class CartService {
           boutiqueId: group.boutiqueId,
           fulfillmentType: options?.fulfillmentType || 'delivery',
           shippingAddress: options?.shippingAddress as any,
-          notes: options?.notes
+          notes: options?.notes,
+          paymentMethod: options?.paymentMethod || 'cash'
         })
       );
 

@@ -18,3 +18,6 @@ export * from './box.model';
 
 // Cart models
 export * from './cart.model';
+
+// POS (Point of Sale) models
+export * from './pos.model';

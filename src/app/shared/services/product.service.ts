@@ -130,7 +130,7 @@ export class ProductService {
       compareAtPrice: p.compareAtPrice,
       stock: p.stock,
       lowStockThreshold: p.lowStockThreshold,
-      images: p.images || [],
+      images: this.normalizeImages(p.images),
       status: p.status,
       isFeatured: p.isFeatured,
       tags: p.tags || [],
@@ -140,6 +140,24 @@ export class ProductService {
       boutiqueName: p.boutique?.name || '',
       boutiqueSlug: p.boutique?.slug || ''
     };
+  }
+
+  /** Convertit les images (string ou objet) en ProductImage[] */
+  private normalizeImages(images: any[]): import('../../core/models/product.model').ProductImage[] {
+    if (!images || !Array.isArray(images)) return [];
+    return images.map((img: any, index: number) => {
+      if (typeof img === 'string') {
+        return { id: 'img-' + index, url: img, position: index, isPrimary: index === 0 };
+      }
+      // Déjà un objet ProductImage
+      return {
+        id: img.id || img._id || 'img-' + index,
+        url: img.url || img,
+        alt: img.alt,
+        position: img.position ?? index,
+        isPrimary: img.isPrimary ?? (index === 0)
+      };
+    });
   }
 
   getProductBySlug(boutiqueSlug: string, productSlug: string): Observable<ProductWithBoutique | null> {
