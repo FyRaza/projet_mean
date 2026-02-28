@@ -17,10 +17,7 @@ const boutiqueSchema = new mongoose.Schema({
     },
     contactEmail: { type: String },
     contactPhone: { type: String },
-    categoryId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Category'
-    }
+    categoryId: { type: String }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Boutique', boutiqueSchema);

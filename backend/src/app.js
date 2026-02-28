@@ -7,12 +7,31 @@ const swaggerSpec = require('./config/swagger');
 const authRoutes = require('./routes/auth.routes');
 const boutiqueRoutes = require('./routes/boutique.routes');
 const productRoutes = require('./routes/product.routes');
+const orderRoutes = require('./routes/order.routes');
+const boxRoutes = require('./routes/box.routes');
+const categoryRoutes = require('./routes/category.routes');
 
 const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+const corsOptions = {
+    origin: (origin, callback) => {
+        // Allow non-browser clients (no origin) and allow all in dev if no CORS_ORIGIN is configured.
+        if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(morgan('dev'));
 
 // -----------------------------------------------
@@ -38,10 +57,17 @@ const swaggerUiOptions = {
     }
 };
 
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
+const isSwaggerEnabled = process.env.SWAGGER_ENABLED !== 'false';
+
+if (isSwaggerEnabled) {
+    app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
+}
 
 // Endpoint JSON brut de la spec OpenAPI (utile pour Postman, Insomnia, etc.)
 app.get('/api/docs.json', (req, res) => {
+    if (!isSwaggerEnabled) {
+        return res.status(404).json({ message: 'API docs are disabled' });
+    }
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
 });
@@ -50,14 +76,19 @@ app.get('/api/docs.json', (req, res) => {
 // Base Route
 // -----------------------------------------------
 app.get('/', (req, res) => {
+    const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+
     res.json({
         message: '🏬 Welcome to Mall Management API',
         version: '1.0.0',
-        documentation: 'http://localhost:5000/api/docs',
+        documentation: isSwaggerEnabled ? `${baseUrl}/api/docs` : null,
         endpoints: {
             auth: '/api/auth',
             boutiques: '/api/boutiques',
-            products: '/api/products'
+            products: '/api/products',
+            orders: '/api/orders',
+            boxes: '/api/boxes',
+            categories: '/api/categories'
         }
     });
 });
@@ -68,11 +99,18 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/boutiques', boutiqueRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/boxes', boxRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // -----------------------------------------------
 // Error Handling Middleware
 // -----------------------------------------------
 app.use((err, req, res, next) => {
+    if (err.message === 'Not allowed by CORS') {
+        return res.status(403).json({ message: err.message });
+    }
+
     console.error(err.stack);
     res.status(500).json({
         message: 'Something went wrong!',

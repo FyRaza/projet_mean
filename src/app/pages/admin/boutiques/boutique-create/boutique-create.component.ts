@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { AdminService } from '../../../../shared/services/admin.service';
+import { AdminService, BoutiqueOwnerAccount } from '../../../../shared/services/admin.service';
 import { Box, Category } from '../../../../core/models';
 
 @Component({
@@ -71,6 +71,25 @@ import { Box, Category } from '../../../../core/models';
                   placeholder="+261 34 00 000 00"
                 />
               </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Propriétaire existant (optionnel)
+                </label>
+                <select
+                  [(ngModel)]="formData.ownerId"
+                  class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-0 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
+                >
+                  <option value="">Créer un nouveau propriétaire</option>
+                  @for (owner of owners; track owner.id) {
+                    <option [value]="owner.id">
+                      {{ owner.firstName }} {{ owner.lastName }} - {{ owner.email }}
+                    </option>
+                  }
+                </select>
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Si vous choisissez un propriétaire existant, les identifiants ci-dessous ne seront pas utilisés.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -78,49 +97,56 @@ import { Box, Category } from '../../../../core/models';
           <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Identifiants de connexion</h2>
             <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email (identifiant) *</label>
-                <input
-                  type="email"
-                  [(ngModel)]="formData.email"
-                  class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-0 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
-                  placeholder="boutique@exemple.com"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mot de passe *</label>
-                <div class="relative">
-                  <input
-                    [type]="showPassword ? 'text' : 'password'"
-                    [(ngModel)]="formData.password"
-                    class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-0 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 pr-12"
-                    placeholder="Mot de passe"
-                  />
-                  <button
-                    type="button"
-                    (click)="showPassword = !showPassword"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  >
-                    @if (showPassword) {
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-                      </svg>
-                    } @else {
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                      </svg>
-                    }
-                  </button>
+              @if (selectedOwner) {
+                <div class="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 text-sm">
+                  Propriétaire sélectionné: <span class="font-semibold">{{ selectedOwner.firstName }} {{ selectedOwner.lastName }}</span>
+                  ({{ selectedOwner.email }})
                 </div>
-              </div>
-              <button
-                type="button"
-                (click)="generatePassword()"
-                class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
-              >
-                Générer un mot de passe
-              </button>
+              } @else {
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email (identifiant) *</label>
+                  <input
+                    type="email"
+                    [(ngModel)]="formData.email"
+                    class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-0 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
+                    placeholder="boutique@exemple.com"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mot de passe *</label>
+                  <div class="relative">
+                    <input
+                      [type]="showPassword ? 'text' : 'password'"
+                      [(ngModel)]="formData.password"
+                      class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-0 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 pr-12"
+                      placeholder="Mot de passe"
+                    />
+                    <button
+                      type="button"
+                      (click)="showPassword = !showPassword"
+                      class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    >
+                      @if (showPassword) {
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                        </svg>
+                      } @else {
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                      }
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  (click)="generatePassword()"
+                  class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
+                >
+                  Générer un mot de passe
+                </button>
+              }
             </div>
           </div>
         </div>
@@ -217,9 +243,14 @@ import { Box, Category } from '../../../../core/models';
 
           <!-- Actions -->
           <div class="flex flex-col gap-3">
+            @if (errorMessage) {
+              <div class="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">
+                {{ errorMessage }}
+              </div>
+            }
             <button
               (click)="createBoutique()"
-              [disabled]="!isFormValid() || creating"
+              [disabled]="creating"
               class="w-full px-6 py-3 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               @if (creating) {
@@ -273,20 +304,27 @@ export class BoutiqueCreateComponent implements OnInit {
 
   categories: Category[] = [];
   boxes: Box[] = [];
+  owners: BoutiqueOwnerAccount[] = [];
   selectedBox: Box | null = null;
   filterZone = '';
   showPassword = false;
   creating = false;
   showSuccessToast = false;
+  errorMessage = '';
 
   formData = {
     name: '',
     description: '',
     categoryId: '',
+    ownerId: '',
     email: '',
     password: '',
     phone: ''
   };
+
+  get selectedOwner(): BoutiqueOwnerAccount | null {
+    return this.owners.find((o) => o.id === this.formData.ownerId) || null;
+  }
 
   get filteredBoxes(): Box[] {
     let boxes = this.boxes.filter(b => b.status === 'available');
@@ -299,6 +337,10 @@ export class BoutiqueCreateComponent implements OnInit {
   ngOnInit(): void {
     this.adminService.getCategories().subscribe(cats => this.categories = cats);
     this.adminService.getBoxes().subscribe(boxes => this.boxes = boxes);
+    this.adminService.getBoutiqueOwners().subscribe({
+      next: (owners) => this.owners = owners,
+      error: () => this.owners = []
+    });
   }
 
   selectBox(box: Box): void {
@@ -319,30 +361,67 @@ export class BoutiqueCreateComponent implements OnInit {
     return !!(
       this.formData.name.trim() &&
       this.formData.categoryId &&
-      this.formData.email.trim() &&
-      this.formData.password.trim()
+      (this.formData.ownerId || (this.formData.email.trim() && this.formData.password.trim()))
     );
   }
 
+  private getMissingRequiredFields(): string[] {
+    const missing: string[] = [];
+    if (!this.formData.name.trim()) missing.push('nom de la boutique');
+    if (!this.formData.categoryId) missing.push('categorie');
+    if (!this.formData.ownerId) {
+      if (!this.formData.email.trim()) missing.push('email');
+      if (!this.formData.password.trim()) missing.push('mot de passe');
+    }
+    return missing;
+  }
+
   createBoutique(): void {
-    if (!this.isFormValid()) return;
+    const missing = this.getMissingRequiredFields();
+    if (missing.length > 0) {
+      this.errorMessage = `Veuillez renseigner: ${missing.join(', ')}.`;
+      return;
+    }
 
     this.creating = true;
+    this.errorMessage = '';
 
-    // Simulate API call
-    setTimeout(() => {
-      // If a box is selected, assign it
-      if (this.selectedBox) {
-        this.adminService.assignBox(this.selectedBox.id, 'new-boutique-id', this.formData.name).subscribe();
+    this.adminService.createBoutiqueWithOwner({
+      boutiqueName: this.formData.name,
+      description: this.formData.description,
+      categoryId: this.formData.categoryId,
+      phone: this.formData.phone,
+      ownerId: this.formData.ownerId || undefined,
+      ownerEmail: this.selectedOwner?.email || this.formData.email,
+      ownerPassword: this.formData.password
+    }).subscribe({
+      next: (createdBoutique) => {
+        if (this.selectedBox) {
+          this.adminService.assignBox(this.selectedBox.id, createdBoutique.id, createdBoutique.name).subscribe({
+            next: () => this.finishSuccess(),
+            error: (err) => {
+              this.creating = false;
+              this.errorMessage = err?.error?.message || "Boutique créée, mais l'attribution du box a échoué.";
+            }
+          });
+          return;
+        }
+
+        this.finishSuccess();
+      },
+      error: (err) => {
+        this.creating = false;
+        this.errorMessage = err?.error?.message || 'Impossible de créer la boutique.';
       }
+    });
+  }
 
-      this.showSuccessToast = true;
-      setTimeout(() => {
-        this.showSuccessToast = false;
-        this.router.navigate(['/admin/boutiques']);
-      }, 2000);
-
-      this.creating = false;
-    }, 1000);
+  private finishSuccess(): void {
+    this.creating = false;
+    this.showSuccessToast = true;
+    setTimeout(() => {
+      this.showSuccessToast = false;
+      this.router.navigate(['/admin/boutiques']);
+    }, 1800);
   }
 }

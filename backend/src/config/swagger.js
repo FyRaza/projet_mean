@@ -233,7 +233,10 @@ Authorization: Bearer <votre_token>
         tags: [
             { name: 'Auth', description: '🔐 Authentification et gestion des comptes' },
             { name: 'Boutiques', description: '🏪 Gestion des boutiques du centre commercial' },
-            { name: 'Products', description: '📦 Gestion des produits' }
+            { name: 'Products', description: '📦 Gestion des produits' },
+            { name: 'Orders', description: '🛒 Gestion des commandes' },
+            { name: 'Boxes', description: '📍 Gestion des emplacements (boxes) du centre' },
+            { name: 'Categories', description: '🏷️ Gestion des catégories (produits et boutiques)' }
         ]
     },
     apis: ['./src/routes/*.js']  // Fichiers contenant les annotations JSDoc

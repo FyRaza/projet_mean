@@ -1,7 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe } = require('../controllers/auth.controller');
-const { protect } = require('../middleware/auth.middleware');
+const {
+    register,
+    login,
+    getMe,
+    updateMe,
+    changeMyPassword,
+    deleteMyAccount,
+    getMyAddresses,
+    addMyAddress,
+    updateMyAddress,
+    deleteMyAddress,
+    getBoutiqueOwners
+} = require('../controllers/auth.controller');
+const { protect, authorize } = require('../middleware/auth.middleware');
 
 /**
  * @swagger
@@ -136,5 +148,13 @@ router.post('/login', login);
  *               $ref: '#/components/schemas/Error500'
  */
 router.get('/me', protect, getMe);
+router.put('/me', protect, updateMe);
+router.put('/me/password', protect, changeMyPassword);
+router.delete('/me', protect, deleteMyAccount);
+router.get('/me/addresses', protect, getMyAddresses);
+router.post('/me/addresses', protect, addMyAddress);
+router.put('/me/addresses/:addressId', protect, updateMyAddress);
+router.delete('/me/addresses/:addressId', protect, deleteMyAddress);
+router.get('/boutique-owners', protect, authorize('admin'), getBoutiqueOwners);
 
 module.exports = router;

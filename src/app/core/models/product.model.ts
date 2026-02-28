@@ -1,9 +1,11 @@
-export type ProductStatus = 'draft' | 'active' | 'out_of_stock' | 'discontinued';
+export type ProductStatus = 'draft' | 'active' | 'out_of_stock' | 'discontinued' | 'archived';
 
 export interface Product {
   id: string;
   boutiqueId: string;
-  categoryId: string;
+  boutiqueName?: string;
+  boutiqueSlug?: string;
+  categoryId?: string;
   name: string;
   slug: string;
   description: string;
@@ -22,6 +24,14 @@ export interface Product {
   attributes?: ProductAttribute[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** Returns the primary image URL from either format */
+export function getProductPrimaryImage(product: Product): string {
+  if (!product.images || product.images.length === 0) {
+    return 'https://placehold.co/400x400?text=No+Image';
+  }
+  return product.images[0].url;
 }
 
 export interface ProductImage {
@@ -54,15 +64,22 @@ export interface ProductFilter {
   inStock?: boolean;
   search?: string;
   tags?: string[];
+  featured?: boolean;
+  status?: ProductStatus;
   sortBy?: 'price_asc' | 'price_desc' | 'name' | 'newest' | 'popular';
   page?: number;
   limit?: number;
 }
 
 export interface PaginatedProducts {
-  items: Product[];
+  /** Products array (alias for items, for backend compatibility) */
+  products?: Product[];
+  /** Products array (original field name) */
+  items?: Product[];
   total: number;
   page: number;
-  limit: number;
-  totalPages: number;
+  limit?: number;
+  pages?: number;
+  totalPages?: number;
 }
+

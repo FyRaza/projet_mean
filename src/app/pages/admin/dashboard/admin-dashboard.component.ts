@@ -136,7 +136,7 @@ import { Boutique } from '../../../core/models';
                   <div
                     class="h-2.5 rounded-full transition-all duration-500"
                     [class]="zone.color"
-                    [style.width.%]="(zone.occupied / zone.total) * 100"
+                    [style.width.%]="zone.total ? (zone.occupied / zone.total) * 100 : 0"
                   ></div>
                 </div>
               </div>
@@ -282,11 +282,7 @@ export class AdminDashboardComponent implements OnInit {
   activities: RecentActivity[] = [];
   pendingBoutiques: Boutique[] = [];
 
-  zoneStats = [
-    { name: 'A', occupied: 10, total: 12, color: 'bg-blue-500' },
-    { name: 'B', occupied: 8, total: 12, color: 'bg-purple-500' },
-    { name: 'C', occupied: 9, total: 12, color: 'bg-emerald-500' }
-  ];
+  zoneStats: { name: string; occupied: number; total: number; color: string }[] = [];
 
   get occupancyRate(): number {
     if (!this.stats) return 0;
@@ -308,6 +304,16 @@ export class AdminDashboardComponent implements OnInit {
 
     this.adminService.getBoutiques({ status: 'pending' }).subscribe(boutiques => {
       this.pendingBoutiques = boutiques;
+    });
+
+    this.adminService.getBoxStats().subscribe((boxStats) => {
+      const zoneColors = ['bg-blue-500', 'bg-purple-500', 'bg-emerald-500', 'bg-amber-500'];
+      this.zoneStats = (boxStats.byZone || []).map((zone, index) => ({
+        name: zone._id || `Zone ${index + 1}`,
+        occupied: zone.occupied || 0,
+        total: zone.total || 0,
+        color: zoneColors[index % zoneColors.length]
+      }));
     });
   }
 

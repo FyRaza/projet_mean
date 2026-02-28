@@ -97,7 +97,7 @@ import { AdminService, DashboardStats } from '../../../shared/services/admin.ser
                     <span class="text-gray-500 dark:text-gray-400">{{ zone.occupied }}/{{ zone.total }} occupés</span>
                   </div>
                   <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                    <div class="h-3 rounded-full transition-all duration-500" [class]="zone.barColor" [style.width.%]="(zone.occupied / zone.total) * 100"></div>
+                    <div class="h-3 rounded-full transition-all duration-500" [class]="zone.barColor" [style.width.%]="zone.total ? (zone.occupied / zone.total) * 100 : 0"></div>
                   </div>
                 </div>
               }
@@ -187,21 +187,36 @@ export class AdminStatisticsComponent implements OnInit {
 
   stats: DashboardStats | null = null;
 
-  zoneStats = [
-    { name: 'A', occupied: 10, total: 12, bgColor: 'bg-blue-500', barColor: 'bg-blue-500' },
-    { name: 'B', occupied: 8, total: 12, bgColor: 'bg-purple-500', barColor: 'bg-purple-500' },
-    { name: 'C', occupied: 9, total: 12, bgColor: 'bg-emerald-500', barColor: 'bg-emerald-500' }
-  ];
+  zoneStats: { name: string; occupied: number; total: number; bgColor: string; barColor: string }[] = [];
 
   get occupancyRate(): number {
     return this.stats ? Math.round((this.stats.occupiedBoxes / this.stats.totalBoxes) * 100) : 0;
   }
 
   get boutiquesPerZone(): number {
-    return this.stats ? Math.round(this.stats.activeBoutiques / 3) : 0;
+    const zones = this.zoneStats.length || 1;
+    return this.stats ? Math.round(this.stats.activeBoutiques / zones) : 0;
   }
 
   ngOnInit(): void {
     this.adminService.getDashboardStats().subscribe(stats => this.stats = stats);
+    this.adminService.getBoxStats().subscribe((boxStats) => {
+      const zoneColors = [
+        { bgColor: 'bg-blue-500', barColor: 'bg-blue-500' },
+        { bgColor: 'bg-purple-500', barColor: 'bg-purple-500' },
+        { bgColor: 'bg-emerald-500', barColor: 'bg-emerald-500' },
+        { bgColor: 'bg-amber-500', barColor: 'bg-amber-500' }
+      ];
+      this.zoneStats = (boxStats.byZone || []).map((zone, index) => {
+        const color = zoneColors[index % zoneColors.length];
+        return {
+          name: zone._id || `Zone ${index + 1}`,
+          occupied: zone.occupied || 0,
+          total: zone.total || 0,
+          bgColor: color.bgColor,
+          barColor: color.barColor
+        };
+      });
+    });
   }
 }

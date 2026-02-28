@@ -1,7 +1,9 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { BoutiqueOwnerService } from '../../../../shared/services/boutique-owner.service';
+import { OrderService } from '../../../../shared/services/order.service';
 
 type OrderStatus = 'delivered' | 'cancelled';
 
@@ -422,7 +424,11 @@ interface Order {
     </div>
   `
 })
-export class OrderHistoryComponent {
+export class OrderHistoryComponent implements OnInit {
+  private boutiqueOwnerService = inject(BoutiqueOwnerService);
+  private orderService = inject(OrderService);
+  private boutiqueId: string | null = null;
+
   searchQuery = '';
   statusFilter: 'all' | OrderStatus = 'all';
   dateFrom = '';
@@ -434,245 +440,59 @@ export class OrderHistoryComponent {
   showToast = signal(false);
   toastMessage = signal('');
 
-  orders = signal<Order[]>([
-    {
-      id: 'hist-1',
-      orderNumber: 'CMD-2024-001',
-      customerId: 'cust-1',
-      customerName: 'Jean Rakoto',
-      customerEmail: 'jean.rakoto@email.com',
-      customerPhone: '+261 34 12 345 67',
-      items: [
-        { id: 'item-1', productId: 'prod-1', productName: 'Chemise Lin Premium', productImage: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=100&h=100&fit=crop', quantity: 2, price: 85000 },
-        { id: 'item-2', productId: 'prod-2', productName: 'Robe Soirée Noire', productImage: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=100&h=100&fit=crop', quantity: 1, price: 195000 }
-      ],
-      subtotal: 365000,
-      shipping: 5000,
-      total: 370000,
-      status: 'delivered',
-      paymentMethod: 'Mobile Money',
-      shippingAddress: { street: '123 Rue Rainibe', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-12-10T10:30:00'),
-      completedAt: new Date('2024-12-15T14:00:00')
-    },
-    {
-      id: 'hist-2',
-      orderNumber: 'CMD-2024-002',
-      customerId: 'cust-2',
-      customerName: 'Marie Rabe',
-      customerEmail: 'marie.rabe@email.com',
-      customerPhone: '+261 33 98 765 43',
-      items: [
-        { id: 'item-3', productId: 'prod-3', productName: 'Écouteurs Sans Fil Pro', productImage: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=100&h=100&fit=crop', quantity: 1, price: 320000 }
-      ],
-      subtotal: 320000,
-      shipping: 0,
-      total: 320000,
-      status: 'delivered',
-      paymentMethod: 'Carte bancaire',
-      shippingAddress: { street: '45 Avenue Independance', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-12-08T09:15:00'),
-      completedAt: new Date('2024-12-12T16:30:00')
-    },
-    {
-      id: 'hist-3',
-      orderNumber: 'CMD-2024-003',
-      customerId: 'cust-3',
-      customerName: 'Paul Andria',
-      customerEmail: 'paul.andria@email.com',
-      customerPhone: '+261 32 11 222 33',
-      items: [
-        { id: 'item-4', productId: 'prod-4', productName: 'Montre Connectée Sport', productImage: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100&h=100&fit=crop', quantity: 1, price: 450000 }
-      ],
-      subtotal: 450000,
-      shipping: 5000,
-      total: 455000,
-      status: 'cancelled',
-      paymentMethod: 'Cash à la livraison',
-      shippingAddress: { street: '78 Rue Rabezavana', city: 'Antsirabe', postalCode: '110', country: 'Madagascar' },
-      createdAt: new Date('2024-12-05T16:20:00'),
-      completedAt: new Date('2024-12-06T10:00:00'),
-      cancelReason: 'Client injoignable'
-    },
-    {
-      id: 'hist-4',
-      orderNumber: 'CMD-2024-004',
-      customerId: 'cust-4',
-      customerName: 'Sophie Aina',
-      customerEmail: 'sophie.aina@email.com',
-      customerPhone: '+261 34 55 666 77',
-      items: [
-        { id: 'item-5', productId: 'prod-5', productName: 'Coffret Soins Visage', productImage: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=100&h=100&fit=crop', quantity: 2, price: 175000 },
-        { id: 'item-6', productId: 'prod-6', productName: 'Parfum Eau de Rose', productImage: 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=100&h=100&fit=crop', quantity: 1, price: 125000 }
-      ],
-      subtotal: 475000,
-      shipping: 5000,
-      total: 480000,
-      status: 'delivered',
-      paymentMethod: 'Mobile Money',
-      shippingAddress: { street: '12 Boulevard Ratsimandrava', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-11-28T11:00:00'),
-      completedAt: new Date('2024-12-02T15:00:00')
-    },
-    {
-      id: 'hist-5',
-      orderNumber: 'CMD-2024-005',
-      customerId: 'cust-5',
-      customerName: 'Luc Razafy',
-      customerEmail: 'luc.razafy@email.com',
-      customerPhone: '+261 33 44 555 66',
-      items: [
-        { id: 'item-7', productId: 'prod-7', productName: 'Lampe de Table Design', productImage: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=100&h=100&fit=crop', quantity: 1, price: 89000 },
-        { id: 'item-8', productId: 'prod-8', productName: 'Coussin Velours Premium', productImage: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?w=100&h=100&fit=crop', quantity: 4, price: 45000 }
-      ],
-      subtotal: 269000,
-      shipping: 5000,
-      total: 274000,
-      status: 'delivered',
-      paymentMethod: 'Carte bancaire',
-      shippingAddress: { street: '56 Rue Gallieni', city: 'Toamasina', postalCode: '501', country: 'Madagascar' },
-      createdAt: new Date('2024-11-20T14:30:00'),
-      completedAt: new Date('2024-11-25T11:00:00')
-    },
-    {
-      id: 'hist-6',
-      orderNumber: 'CMD-2024-006',
-      customerId: 'cust-1',
-      customerName: 'Jean Rakoto',
-      customerEmail: 'jean.rakoto@email.com',
-      customerPhone: '+261 34 12 345 67',
-      items: [
-        { id: 'item-9', productId: 'prod-9', productName: 'Sac à Main Cuir Marron', productImage: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=100&h=100&fit=crop', quantity: 1, price: 280000 }
-      ],
-      subtotal: 280000,
-      shipping: 0,
-      total: 280000,
-      status: 'delivered',
-      paymentMethod: 'Mobile Money',
-      shippingAddress: { street: '123 Rue Rainibe', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-11-15T09:00:00'),
-      completedAt: new Date('2024-11-19T17:30:00')
-    },
-    {
-      id: 'hist-7',
-      orderNumber: 'CMD-2024-007',
-      customerId: 'cust-6',
-      customerName: 'Nina Hery',
-      customerEmail: 'nina.hery@email.com',
-      customerPhone: '+261 32 77 888 99',
-      items: [
-        { id: 'item-10', productId: 'prod-10', productName: 'Enceinte Portable Bluetooth', productImage: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=100&h=100&fit=crop', quantity: 1, price: 185000 }
-      ],
-      subtotal: 185000,
-      shipping: 5000,
-      total: 190000,
-      status: 'cancelled',
-      paymentMethod: 'Cash à la livraison',
-      shippingAddress: { street: '23 Avenue Raseta', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-11-10T12:00:00'),
-      completedAt: new Date('2024-11-11T09:00:00'),
-      cancelReason: 'Annulé par le client'
-    },
-    {
-      id: 'hist-8',
-      orderNumber: 'CMD-2024-008',
-      customerId: 'cust-7',
-      customerName: 'Feno Tiana',
-      customerEmail: 'feno.tiana@email.com',
-      customerPhone: '+261 34 00 111 22',
-      items: [
-        { id: 'item-11', productId: 'prod-11', productName: 'Tapis de Yoga Premium', productImage: 'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=100&h=100&fit=crop', quantity: 1, price: 65000 },
-        { id: 'item-12', productId: 'prod-12', productName: 'Haltères Réglables Set', productImage: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=100&h=100&fit=crop', quantity: 1, price: 380000 }
-      ],
-      subtotal: 445000,
-      shipping: 10000,
-      total: 455000,
-      status: 'delivered',
-      paymentMethod: 'Carte bancaire',
-      shippingAddress: { street: '89 Rue Rainitovo', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-11-05T08:45:00'),
-      completedAt: new Date('2024-11-10T14:00:00')
-    },
-    {
-      id: 'hist-9',
-      orderNumber: 'CMD-2024-009',
-      customerId: 'cust-2',
-      customerName: 'Marie Rabe',
-      customerEmail: 'marie.rabe@email.com',
-      customerPhone: '+261 33 98 765 43',
-      items: [
-        { id: 'item-13', productId: 'prod-13', productName: 'Collection Romans Classiques', productImage: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=100&h=100&fit=crop', quantity: 1, price: 95000 }
-      ],
-      subtotal: 95000,
-      shipping: 5000,
-      total: 100000,
-      status: 'delivered',
-      paymentMethod: 'Mobile Money',
-      shippingAddress: { street: '45 Avenue Independance', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-10-28T15:20:00'),
-      completedAt: new Date('2024-11-02T10:30:00')
-    },
-    {
-      id: 'hist-10',
-      orderNumber: 'CMD-2024-010',
-      customerId: 'cust-4',
-      customerName: 'Sophie Aina',
-      customerEmail: 'sophie.aina@email.com',
-      customerPhone: '+261 34 55 666 77',
-      items: [
-        { id: 'item-14', productId: 'prod-14', productName: 'Palette Maquillage Pro', productImage: 'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=100&h=100&fit=crop', quantity: 2, price: 78000 },
-        { id: 'item-15', productId: 'prod-15', productName: 'Miroir Mural Doré', productImage: 'https://images.unsplash.com/photo-1618220179428-22790b461013?w=100&h=100&fit=crop', quantity: 1, price: 145000 }
-      ],
-      subtotal: 301000,
-      shipping: 5000,
-      total: 306000,
-      status: 'delivered',
-      paymentMethod: 'Carte bancaire',
-      shippingAddress: { street: '12 Boulevard Ratsimandrava', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-10-20T11:30:00'),
-      completedAt: new Date('2024-10-25T16:45:00')
-    },
-    {
-      id: 'hist-11',
-      orderNumber: 'CMD-2024-011',
-      customerId: 'cust-8',
-      customerName: 'Haja Riana',
-      customerEmail: 'haja.riana@email.com',
-      customerPhone: '+261 33 22 333 44',
-      items: [
-        { id: 'item-16', productId: 'prod-1', productName: 'Chemise Lin Premium', productImage: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=100&h=100&fit=crop', quantity: 3, price: 85000 }
-      ],
-      subtotal: 255000,
-      shipping: 5000,
-      total: 260000,
-      status: 'delivered',
-      paymentMethod: 'Mobile Money',
-      shippingAddress: { street: '67 Rue Ravoahangy', city: 'Fianarantsoa', postalCode: '301', country: 'Madagascar' },
-      createdAt: new Date('2024-10-15T09:00:00'),
-      completedAt: new Date('2024-10-20T12:00:00')
-    },
-    {
-      id: 'hist-12',
-      orderNumber: 'CMD-2024-012',
-      customerId: 'cust-9',
-      customerName: 'Vola Andry',
-      customerEmail: 'vola.andry@email.com',
-      customerPhone: '+261 34 66 777 88',
-      items: [
-        { id: 'item-17', productId: 'prod-3', productName: 'Écouteurs Sans Fil Pro', productImage: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=100&h=100&fit=crop', quantity: 1, price: 320000 },
-        { id: 'item-18', productId: 'prod-10', productName: 'Enceinte Portable Bluetooth', productImage: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=100&h=100&fit=crop', quantity: 1, price: 185000 }
-      ],
-      subtotal: 505000,
-      shipping: 0,
-      total: 505000,
-      status: 'cancelled',
-      paymentMethod: 'Carte bancaire',
-      shippingAddress: { street: '34 Avenue Fahaleovantena', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-10-10T14:00:00'),
-      completedAt: new Date('2024-10-11T08:30:00'),
-      cancelReason: 'Rupture de stock'
-    }
-  ]);
+  orders = signal<Order[]>([]);
+
+  ngOnInit(): void {
+    this.boutiqueOwnerService.getMyBoutique().subscribe({
+      next: (boutique) => {
+        this.boutiqueId = boutique?.id || null;
+        if (!this.boutiqueId) return;
+        this.loadOrders();
+      }
+    });
+  }
+
+  private loadOrders(): void {
+    if (!this.boutiqueId) return;
+    this.orderService.getOrders({ boutiqueId: this.boutiqueId, limit: 300, page: 1 }).subscribe({
+      next: (res) => {
+        const mapped = (res.orders || [])
+          .filter((o) => o.status === 'delivered' || o.status === 'cancelled')
+          .map((o) => ({
+            id: o.id,
+            orderNumber: o.orderNumber,
+            customerId: o.customerId,
+            customerName: o.customerName,
+            customerEmail: o.customerEmail,
+            customerPhone: '',
+            items: o.items.map((i) => ({
+              id: i.id,
+              productId: i.productId,
+              productName: i.productName,
+              productImage: i.productImage || '',
+              quantity: i.quantity,
+              price: i.unitPrice
+            })),
+            subtotal: o.subtotal,
+            shipping: 0,
+            total: o.total,
+            status: o.status as OrderStatus,
+            paymentMethod: o.paymentStatus || 'N/A',
+            shippingAddress: o.shippingAddress || {
+              street: '',
+              city: '',
+              postalCode: '',
+              country: 'Madagascar'
+            },
+            createdAt: o.createdAt,
+            completedAt: o.updatedAt,
+            cancelReason: ''
+          }));
+        this.orders.set(mapped);
+      },
+      error: () => this.orders.set([])
+    });
+  }
 
   // Computed properties
   filteredOrders = computed(() => {
@@ -748,12 +568,16 @@ export class OrderHistoryComponent {
   });
 
   monthlyStats = computed(() => {
-    const months = ['Oct', 'Nov', 'Déc', 'Jan', 'Fév', 'Mar'];
-    const stats = months.map(month => {
-      const delivered = Math.floor(Math.random() * 20) + 5;
-      const cancelled = Math.floor(Math.random() * 5);
-      const total = delivered + cancelled;
-      const maxHeight = 30;
+    const months = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const maxHeight = Math.max(1, ...months.map((monthName) => {
+      const monthOrders = this.orders().filter((o) => months[new Date(o.completedAt).getMonth()] === monthName);
+      return monthOrders.length;
+    }));
+    const stats = months.slice(-6).map(month => {
+      const monthOrders = this.orders().filter((o) => months[new Date(o.completedAt).getMonth()] === month);
+      const delivered = monthOrders.filter((o) => o.status === 'delivered').length;
+      const cancelled = monthOrders.filter((o) => o.status === 'cancelled').length;
+      const total = monthOrders.length;
       return {
         month,
         delivered,

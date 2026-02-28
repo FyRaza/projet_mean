@@ -4,10 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../../../shared/services/auth.service';
 import { User } from '../../../../core/models/user.model';
+import { Router } from '@angular/router';
 
 interface Address {
   id: string;
   label: string;
+  fullName?: string;
+  phone?: string;
   street: string;
   city: string;
   postalCode: string;
@@ -44,6 +47,7 @@ interface Address {
                   </div>
                   <button
                     type="button"
+                    (click)="startEditingProfile(user)"
                     class="absolute bottom-0 right-0 p-2 bg-white dark:bg-gray-700 rounded-full shadow-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                   >
                     <svg class="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -216,11 +220,11 @@ interface Address {
                       <p class="text-sm text-gray-600 dark:text-gray-400">{{ address.postalCode }} {{ address.city }}</p>
                       <p class="text-sm text-gray-600 dark:text-gray-400">{{ address.country }}</p>
                       <div class="flex items-center gap-3 mt-3">
-                        <button type="button" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Modifier</button>
+                        <button type="button" (click)="editAddress(address)" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Modifier</button>
                         @if (!address.isDefault) {
-                          <button type="button" class="text-sm text-gray-500 dark:text-gray-400 hover:underline">Definir par defaut</button>
+                          <button type="button" (click)="setDefaultAddress(address)" class="text-sm text-gray-500 dark:text-gray-400 hover:underline">Definir par defaut</button>
                         }
-                        <button type="button" class="text-sm text-red-600 dark:text-red-400 hover:underline">Supprimer</button>
+                        <button type="button" (click)="deleteAddress(address)" class="text-sm text-red-600 dark:text-red-400 hover:underline">Supprimer</button>
                       </div>
                     </div>
                   }
@@ -259,10 +263,11 @@ interface Address {
               <div class="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
                 <div>
                   <p class="font-medium text-gray-900 dark:text-white">Mot de passe</p>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">Derniere modification il y a 3 mois</p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">Mettez a jour votre mot de passe de connexion</p>
                 </div>
                 <button
                   type="button"
+                  (click)="changePassword()"
                   class="px-4 py-2 text-sm font-medium text-brand-600 dark:text-brand-400 border border-brand-600 dark:border-brand-400 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors"
                 >
                   Modifier
@@ -276,6 +281,7 @@ interface Address {
                 </div>
                 <button
                   type="button"
+                  (click)="deleteAccount()"
                   class="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-600 dark:border-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                 >
                   Supprimer
@@ -300,6 +306,7 @@ interface Address {
 })
 export class AccountProfileComponent implements OnInit {
   private authService = inject(AuthService);
+  private router = inject(Router);
 
   currentUser$ = this.authService.currentUser$;
 
@@ -316,18 +323,14 @@ export class AccountProfileComponent implements OnInit {
   };
 
   ngOnInit(): void {
-    // Load mock addresses
-    this.addresses.set([
-      {
-        id: '1',
-        label: 'Domicile',
-        street: '123 Rue Principale',
-        city: 'Antananarivo',
-        postalCode: '101',
-        country: 'Madagascar',
-        isDefault: true
-      }
-    ]);
+    this.loadAddresses();
+  }
+
+  private loadAddresses(): void {
+    this.authService.getMyAddresses().subscribe({
+      next: (addresses) => this.addresses.set(addresses as Address[]),
+      error: () => this.addresses.set([])
+    });
   }
 
   startEditingProfile(user: User): void {
@@ -369,7 +372,85 @@ export class AccountProfileComponent implements OnInit {
   }
 
   addAddress(): void {
-    // TODO: Open address form modal
-    console.log('Add address modal');
+    const label = prompt('Label de l’adresse (ex: Domicile, Bureau)') || 'Adresse';
+    const street = prompt('Rue et quartier');
+    const city = prompt('Ville');
+    if (!street || !city) return;
+
+    const postalCode = prompt('Code postal') || '';
+    const country = prompt('Pays', 'Madagascar') || 'Madagascar';
+
+    this.authService.addAddress({
+      label,
+      street,
+      city,
+      postalCode,
+      country,
+      isDefault: this.addresses().length === 0
+    }).subscribe({
+      next: () => this.loadAddresses()
+    });
+  }
+
+  editAddress(address: Address): void {
+    const street = prompt('Rue et quartier', address.street);
+    const city = prompt('Ville', address.city);
+    if (!street || !city) return;
+
+    const label = prompt('Label', address.label) || address.label;
+    const postalCode = prompt('Code postal', address.postalCode) || '';
+    const country = prompt('Pays', address.country) || 'Madagascar';
+
+    this.authService.updateAddress(address.id, {
+      label,
+      street,
+      city,
+      postalCode,
+      country
+    }).subscribe({
+      next: () => this.loadAddresses()
+    });
+  }
+
+  setDefaultAddress(address: Address): void {
+    this.authService.updateAddress(address.id, { isDefault: true }).subscribe({
+      next: () => this.loadAddresses()
+    });
+  }
+
+  deleteAddress(address: Address): void {
+    if (!confirm(`Supprimer l'adresse "${address.label}" ?`)) return;
+    this.authService.deleteAddress(address.id).subscribe({
+      next: () => this.loadAddresses()
+    });
+  }
+
+  changePassword(): void {
+    const currentPassword = prompt('Entrez votre mot de passe actuel');
+    if (!currentPassword) return;
+    const newPassword = prompt('Entrez votre nouveau mot de passe (min 6 caracteres)');
+    if (!newPassword) return;
+
+    this.authService.changePassword(currentPassword, newPassword).subscribe({
+      next: () => {
+        alert('Mot de passe mis a jour avec succes.');
+      },
+      error: (err) => {
+        alert(err?.error?.message || 'Impossible de mettre a jour le mot de passe.');
+      }
+    });
+  }
+
+  deleteAccount(): void {
+    if (!confirm('Voulez-vous vraiment supprimer votre compte ? Cette action est irreversible.')) return;
+    this.authService.deleteMyAccount().subscribe({
+      next: () => {
+        this.authService.logout();
+        this.router.navigate(['/']);
+      },
+      error: (err) => {
+        alert(err?.error?.message || 'Impossible de supprimer le compte.');
+      }
+    });
   }
 }

@@ -1,24 +1,24 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { forkJoin } from 'rxjs';
+import { BoutiqueOwnerService } from '../../../shared/services/boutique-owner.service';
+import { OrderService } from '../../../shared/services/order.service';
 
 interface DashboardStats {
   totalOrders: number;
   pendingOrders: number;
   totalProducts: number;
   activeProducts: number;
-  todayVisitors: number;
-  monthlyVisitors: number;
 }
 
 interface RecentOrder {
   id: string;
   orderNumber: string;
   customerName: string;
-  customerPhone: string;
   items: number;
   total: number;
-  status: 'pending' | 'confirmed' | 'processing' | 'ready' | 'delivered' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
   createdAt: Date;
 }
 
@@ -280,128 +280,100 @@ interface TopProduct {
   `
 })
 export class BoutiqueDashboardComponent implements OnInit {
+  private boutiqueOwnerService = inject(BoutiqueOwnerService);
+  private orderService = inject(OrderService);
+  private boutiqueId: string | null = null;
+
   stats = signal<DashboardStats>({
     totalOrders: 0,
     pendingOrders: 0,
     totalProducts: 0,
-    activeProducts: 0,
-    todayVisitors: 0,
-    monthlyVisitors: 0
+    activeProducts: 0
   });
 
   recentOrders = signal<RecentOrder[]>([]);
   topProducts = signal<TopProduct[]>([]);
 
   ngOnInit(): void {
-    this.loadStats();
-    this.loadRecentOrders();
-    this.loadTopProducts();
-  }
-
-  private loadStats(): void {
-    this.stats.set({
-      totalOrders: 156,
-      pendingOrders: 8,
-      totalProducts: 52,
-      activeProducts: 45,
-      todayVisitors: 127,
-      monthlyVisitors: 2456
+    this.boutiqueOwnerService.getMyBoutique().subscribe({
+      next: (boutique) => {
+        this.boutiqueId = boutique?.id || null;
+        if (!this.boutiqueId) {
+          this.stats.set({ totalOrders: 0, pendingOrders: 0, totalProducts: 0, activeProducts: 0 });
+          this.recentOrders.set([]);
+          this.topProducts.set([]);
+          return;
+        }
+        this.loadDashboardData();
+      },
+      error: () => {
+        this.stats.set({ totalOrders: 0, pendingOrders: 0, totalProducts: 0, activeProducts: 0 });
+        this.recentOrders.set([]);
+        this.topProducts.set([]);
+      }
     });
   }
 
-  private loadRecentOrders(): void {
-    const orders: RecentOrder[] = [
-      {
-        id: '1',
-        orderNumber: 'CMD-2024-0156',
-        customerName: 'Jean Rakoto',
-        customerPhone: '+261 34 12 345 67',
-        items: 3,
-        total: 185000,
-        status: 'pending',
-        createdAt: new Date()
-      },
-      {
-        id: '2',
-        orderNumber: 'CMD-2024-0155',
-        customerName: 'Marie Rabe',
-        customerPhone: '+261 33 98 765 43',
-        items: 1,
-        total: 75000,
-        status: 'confirmed',
-        createdAt: new Date(Date.now() - 3600000)
-      },
-      {
-        id: '3',
-        orderNumber: 'CMD-2024-0154',
-        customerName: 'Paul Andria',
-        customerPhone: '+261 32 11 222 33',
-        items: 2,
-        total: 120000,
-        status: 'processing',
-        createdAt: new Date(Date.now() - 7200000)
-      },
-      {
-        id: '4',
-        orderNumber: 'CMD-2024-0153',
-        customerName: 'Lova Nirina',
-        customerPhone: '+261 34 55 666 77',
-        items: 4,
-        total: 250000,
-        status: 'ready',
-        createdAt: new Date(Date.now() - 10800000)
-      }
-    ];
-    this.recentOrders.set(orders);
-  }
+  private loadDashboardData(): void {
+    if (!this.boutiqueId) return;
+    forkJoin({
+      orderStats: this.orderService.getOrderStats(this.boutiqueId),
+      recentOrders: this.orderService.getOrders({ boutiqueId: this.boutiqueId, limit: 5, page: 1 }),
+      products: this.boutiqueOwnerService.getBoutiqueProducts(this.boutiqueId, 1, 200)
+    }).subscribe({
+      next: ({ orderStats, recentOrders, products }) => {
+        const productList = products?.products || [];
+        const salesByProductId = new Map<string, number>();
+        (recentOrders?.orders || []).forEach((order) => {
+          order.items.forEach((item) => {
+            salesByProductId.set(item.productId, (salesByProductId.get(item.productId) || 0) + item.quantity);
+          });
+        });
+        this.stats.set({
+          totalOrders: orderStats?.totalOrders || 0,
+          pendingOrders: orderStats?.pendingOrders || 0,
+          totalProducts: productList.length,
+          activeProducts: productList.filter((p) => p.status === 'active').length
+        });
 
-  private loadTopProducts(): void {
-    const products: TopProduct[] = [
-      {
-        id: '1',
-        name: 'T-shirt Premium Coton',
-        image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100&h=100&fit=crop',
-        sales: 45,
-        stock: 12
+        this.recentOrders.set(
+          (recentOrders?.orders || []).slice(0, 5).map((order) => ({
+            id: order.id,
+            orderNumber: order.orderNumber,
+            customerName: order.customerName || 'Client',
+            items: order.items.reduce((sum, item) => sum + item.quantity, 0),
+            total: order.total,
+            status: order.status === 'refunded' ? 'cancelled' : order.status,
+            createdAt: order.createdAt
+          }))
+        );
+
+        this.topProducts.set(
+          [...productList]
+            .sort((a, b) => b.stock - a.stock)
+            .slice(0, 5)
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              image: p.images?.[0]?.url || '',
+              sales: salesByProductId.get(p.id) || 0,
+              stock: p.stock
+            }))
+        );
       },
-      {
-        id: '2',
-        name: 'Jean Slim Fit',
-        image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=100&h=100&fit=crop',
-        sales: 38,
-        stock: 8
-      },
-      {
-        id: '3',
-        name: 'Sneakers Urban',
-        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop',
-        sales: 32,
-        stock: 3
-      },
-      {
-        id: '4',
-        name: 'Veste en Cuir',
-        image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=100&h=100&fit=crop',
-        sales: 28,
-        stock: 15
-      },
-      {
-        id: '5',
-        name: 'Montre Classique',
-        image: 'https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=100&h=100&fit=crop',
-        sales: 24,
-        stock: 20
+      error: () => {
+        this.stats.set({ totalOrders: 0, pendingOrders: 0, totalProducts: 0, activeProducts: 0 });
+        this.recentOrders.set([]);
+        this.topProducts.set([]);
       }
-    ];
-    this.topProducts.set(products);
+    });
   }
 
   getStatusLabel(status: RecentOrder['status']): string {
     const labels: Record<RecentOrder['status'], string> = {
       pending: 'En attente',
       confirmed: 'Confirmee',
-      processing: 'Preparation',
-      ready: 'Prete',
+      shipped: 'Expediee',
       delivered: 'Livree',
       cancelled: 'Annulee'
     };
@@ -413,8 +385,7 @@ export class BoutiqueDashboardComponent implements OnInit {
     const classes: Record<RecentOrder['status'], string> = {
       pending: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
       confirmed: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
-      processing: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
-      ready: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400',
+      shipped: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
       delivered: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
       cancelled: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
     };
@@ -422,13 +393,8 @@ export class BoutiqueDashboardComponent implements OnInit {
   }
 
   confirmOrder(orderId: string): void {
-    const orders = this.recentOrders();
-    const updated = orders.map(o =>
-      o.id === orderId ? { ...o, status: 'confirmed' as const } : o
-    );
-    this.recentOrders.set(updated);
-
-    // Update pending count
-    this.stats.update(s => ({ ...s, pendingOrders: s.pendingOrders - 1 }));
+    this.orderService.updateOrderStatus(orderId, 'confirmed').subscribe({
+      next: () => this.loadDashboardData()
+    });
   }
 }

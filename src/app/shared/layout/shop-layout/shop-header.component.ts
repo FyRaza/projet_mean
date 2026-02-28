@@ -10,6 +10,7 @@ import { Router } from '@angular/router';
 interface NavItem {
   name: string;
   path: string;
+  queryParams?: Record<string, string | number | boolean>;
   icon?: string;
 }
 
@@ -317,6 +318,7 @@ interface CategoryItem {
             @for (item of navItems; track item.path) {
               <a
                 [routerLink]="item.path"
+                [queryParams]="item.queryParams"
                 routerLinkActive="bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm"
                 [routerLinkActiveOptions]="{ exact: item.path === '/' }"
                 class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white rounded-lg transition-all"
@@ -387,6 +389,7 @@ interface CategoryItem {
             @for (item of navItems; track item.path) {
               <a
                 [routerLink]="item.path"
+                [queryParams]="item.queryParams"
                 routerLinkActive="text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20"
                 [routerLinkActiveOptions]="{ exact: item.path === '/' }"
                 (click)="closeMobileMenu()"
@@ -442,7 +445,7 @@ export class ShopHeaderComponent {
     { name: 'Accueil', path: '/' },
     { name: 'Boutiques', path: '/boutiques' },
     { name: 'Produits', path: '/products' },
-    { name: 'Nouveautés', path: '/products?sort=newest' }
+    { name: 'Nouveautés', path: '/products', queryParams: { sort: 'newest' } }
   ];
 
   categories: CategoryItem[] = [

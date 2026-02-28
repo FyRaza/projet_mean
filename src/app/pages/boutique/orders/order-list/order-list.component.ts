@@ -3,39 +3,10 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 
-type OrderStatus = 'all' | 'pending' | 'confirmed' | 'delivered' | 'cancelled';
-
-interface OrderItem {
-  id: string;
-  productId: string;
-  productName: string;
-  productImage: string;
-  quantity: number;
-  price: number;
-}
-
-interface Order {
-  id: string;
-  orderNumber: string;
-  customerId: string;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  items: OrderItem[];
-  subtotal: number;
-  shipping: number;
-  total: number;
-  status: OrderStatus;
-  paymentMethod: string;
-  shippingAddress: {
-    street: string;
-    city: string;
-    postalCode: string;
-    country: string;
-  };
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { OnInit, inject } from '@angular/core';
+import { OrderService } from '../../../../shared/services/order.service';
+import { Order, OrderStatus } from '../../../../core/models/order.model';
+import { AuthService } from '../../../../shared/services/auth.service';
 
 @Component({
   selector: 'app-boutique-order-list',
@@ -163,7 +134,7 @@ interface Order {
                     <td class="px-6 py-4">
                       <div>
                         <p class="font-medium text-gray-900 dark:text-white">{{ order.orderNumber }}</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ order.paymentMethod }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Paiement : {{ order.paymentStatus }}</p>
                       </div>
                     </td>
                     <td class="px-6 py-4">
@@ -301,161 +272,43 @@ interface Order {
     </div>
   `
 })
-export class BoutiqueOrderListComponent {
+export class BoutiqueOrderListComponent implements OnInit {
+  private orderService = inject(OrderService);
+  private authService = inject(AuthService);
+
   searchQuery = '';
   dateFrom = '';
   dateTo = '';
-  statusFilter = signal<OrderStatus>('all');
+  statusFilter = signal<OrderStatus | 'all'>('all');
   showStatusMenu = signal<string | null>(null);
   showToast = signal(false);
   toastMessage = signal('');
 
-  statusTabs: { value: OrderStatus; label: string }[] = [
+  statusTabs: { value: OrderStatus | 'all'; label: string }[] = [
     { value: 'all', label: 'Toutes' },
     { value: 'pending', label: 'En attente' },
-    { value: 'confirmed', label: 'Confirmees' },
-    { value: 'delivered', label: 'Livrees' },
-    { value: 'cancelled', label: 'Annulees' }
+    { value: 'confirmed', label: 'Confirmées' },
+    { value: 'shipped', label: 'Expédiées' },
+    { value: 'delivered', label: 'Livrées' },
+    { value: 'cancelled', label: 'Annulées' }
   ];
 
-  orders = signal<Order[]>([
-    {
-      id: 'ord-1',
-      orderNumber: 'CMD-2024-001',
-      customerId: 'cust-1',
-      customerName: 'Jean Rakoto',
-      customerEmail: 'jean.rakoto@email.com',
-      customerPhone: '+261 34 12 345 67',
-      items: [
-        { id: 'item-1', productId: 'prod-1', productName: 'T-shirt Premium', productImage: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100&h=100&fit=crop', quantity: 2, price: 35000 },
-        { id: 'item-2', productId: 'prod-2', productName: 'Jean Slim Fit', productImage: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=100&h=100&fit=crop', quantity: 1, price: 75000 }
-      ],
-      subtotal: 145000,
-      shipping: 5000,
-      total: 150000,
-      status: 'pending',
-      paymentMethod: 'Mobile Money',
-      shippingAddress: { street: '123 Rue Rainibe', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-01-15T10:30:00'),
-      updatedAt: new Date('2024-01-15T10:30:00')
-    },
-    {
-      id: 'ord-2',
-      orderNumber: 'CMD-2024-002',
-      customerId: 'cust-2',
-      customerName: 'Marie Rabe',
-      customerEmail: 'marie.rabe@email.com',
-      customerPhone: '+261 33 98 765 43',
-      items: [
-        { id: 'item-3', productId: 'prod-4', productName: 'Ecouteurs Bluetooth', productImage: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&h=100&fit=crop', quantity: 1, price: 180000 }
-      ],
-      subtotal: 180000,
-      shipping: 0,
-      total: 180000,
-      status: 'confirmed',
-      paymentMethod: 'Carte bancaire',
-      shippingAddress: { street: '45 Avenue Independance', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-01-15T09:15:00'),
-      updatedAt: new Date('2024-01-15T09:45:00')
-    },
-    {
-      id: 'ord-3',
-      orderNumber: 'CMD-2024-003',
-      customerId: 'cust-3',
-      customerName: 'Paul Andria',
-      customerEmail: 'paul.andria@email.com',
-      customerPhone: '+261 32 11 222 33',
-      items: [
-        { id: 'item-4', productId: 'prod-8', productName: 'Sneakers Urban', productImage: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop', quantity: 1, price: 120000 },
-        { id: 'item-5', productId: 'prod-7', productName: 'Tapis de Yoga', productImage: 'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=100&h=100&fit=crop', quantity: 2, price: 45000 }
-      ],
-      subtotal: 210000,
-      shipping: 5000,
-      total: 215000,
-      status: 'confirmed',
-      paymentMethod: 'Cash a la livraison',
-      shippingAddress: { street: '78 Rue Rabezavana', city: 'Antsirabe', postalCode: '110', country: 'Madagascar' },
-      createdAt: new Date('2024-01-14T16:20:00'),
-      updatedAt: new Date('2024-01-15T08:00:00')
-    },
-    {
-      id: 'ord-4',
-      orderNumber: 'CMD-2024-004',
-      customerId: 'cust-4',
-      customerName: 'Sophie Aina',
-      customerEmail: 'sophie.aina@email.com',
-      customerPhone: '+261 34 55 666 77',
-      items: [
-        { id: 'item-6', productId: 'prod-6', productName: 'Coffret Soins Visage', productImage: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=100&h=100&fit=crop', quantity: 1, price: 95000 }
-      ],
-      subtotal: 95000,
-      shipping: 5000,
-      total: 100000,
-      status: 'pending',
-      paymentMethod: 'Mobile Money',
-      shippingAddress: { street: '12 Boulevard Ratsimandrava', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-01-14T11:00:00'),
-      updatedAt: new Date('2024-01-15T10:00:00')
-    },
-    {
-      id: 'ord-5',
-      orderNumber: 'CMD-2024-005',
-      customerId: 'cust-5',
-      customerName: 'Luc Razafy',
-      customerEmail: 'luc.razafy@email.com',
-      customerPhone: '+261 33 44 555 66',
-      items: [
-        { id: 'item-7', productId: 'prod-5', productName: 'Lampe de Bureau LED', productImage: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=100&h=100&fit=crop', quantity: 1, price: 65000 },
-        { id: 'item-8', productId: 'prod-1', productName: 'T-shirt Premium', productImage: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100&h=100&fit=crop', quantity: 3, price: 35000 }
-      ],
-      subtotal: 170000,
-      shipping: 5000,
-      total: 175000,
-      status: 'delivered',
-      paymentMethod: 'Carte bancaire',
-      shippingAddress: { street: '56 Rue Gallieni', city: 'Toamasina', postalCode: '501', country: 'Madagascar' },
-      createdAt: new Date('2024-01-13T14:30:00'),
-      updatedAt: new Date('2024-01-14T16:00:00')
-    },
-    {
-      id: 'ord-6',
-      orderNumber: 'CMD-2024-006',
-      customerId: 'cust-6',
-      customerName: 'Nina Hery',
-      customerEmail: 'nina.hery@email.com',
-      customerPhone: '+261 32 77 888 99',
-      items: [
-        { id: 'item-9', productId: 'prod-9', productName: 'Montre Connectee', productImage: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100&h=100&fit=crop', quantity: 1, price: 350000 }
-      ],
-      subtotal: 350000,
-      shipping: 0,
-      total: 350000,
-      status: 'cancelled',
-      paymentMethod: 'Mobile Money',
-      shippingAddress: { street: '23 Avenue Raseta', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-01-12T09:00:00'),
-      updatedAt: new Date('2024-01-12T15:00:00')
-    },
-    {
-      id: 'ord-7',
-      orderNumber: 'CMD-2024-007',
-      customerId: 'cust-7',
-      customerName: 'Feno Tiana',
-      customerEmail: 'feno.tiana@email.com',
-      customerPhone: '+261 34 00 111 22',
-      items: [
-        { id: 'item-10', productId: 'prod-2', productName: 'Jean Slim Fit', productImage: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=100&h=100&fit=crop', quantity: 2, price: 75000 }
-      ],
-      subtotal: 150000,
-      shipping: 5000,
-      total: 155000,
-      status: 'pending',
-      paymentMethod: 'Cash a la livraison',
-      shippingAddress: { street: '89 Rue Rainitovo', city: 'Antananarivo', postalCode: '101', country: 'Madagascar' },
-      createdAt: new Date('2024-01-15T11:45:00'),
-      updatedAt: new Date('2024-01-15T11:45:00')
-    }
-  ]);
+  orders = signal<Order[]>([]);
+
+  ngOnInit() {
+    this.loadOrders();
+  }
+
+  loadOrders() {
+    // Le filtre permet de charger par boutique, on va supposer que l'API filtre côté serveur si on le lui dit
+    this.orderService.getOrders().subscribe({
+      next: (res) => {
+        this.orders.set(res.orders);
+      },
+      error: (err) => console.error(err)
+    });
+  }
+
 
   filteredOrders = computed(() => {
     let result = this.orders();
@@ -481,7 +334,7 @@ export class BoutiqueOrderListComponent {
     return result;
   });
 
-  getStatusCount(status: OrderStatus): number {
+  getStatusCount(status: OrderStatus | 'all'): number {
     if (status === 'all') return this.orders().length;
     return this.orders().filter(o => o.status === status).length;
   }
@@ -493,9 +346,10 @@ export class BoutiqueOrderListComponent {
   getStatusLabel(status: string): string {
     const labels: Record<string, string> = {
       'pending': 'En attente',
-      'confirmed': 'Confirmee',
-      'delivered': 'Livree',
-      'cancelled': 'Annulee'
+      'confirmed': 'Confirmée',
+      'shipped': 'Expédiée',
+      'delivered': 'Livrée',
+      'cancelled': 'Annulée'
     };
     return labels[status] || status;
   }
@@ -512,7 +366,9 @@ export class BoutiqueOrderListComponent {
 
   getNextStatuses(currentStatus: string): { value: OrderStatus; label: string }[] {
     const workflow: Record<string, { value: OrderStatus; label: string }[]> = {
-      'pending': [{ value: 'confirmed', label: 'Confirmer la commande' }]
+      'pending': [{ value: 'confirmed', label: 'Confirmer la commande' }],
+      'confirmed': [{ value: 'shipped', label: 'Marquer comme expédiée' }],
+      'shipped': [{ value: 'delivered', label: 'Marquer comme livrée' }]
     };
     return workflow[currentStatus] || [];
   }
@@ -522,16 +378,24 @@ export class BoutiqueOrderListComponent {
   }
 
   updateStatus(order: Order, newStatus: OrderStatus): void {
-    this.orders.update(orders =>
-      orders.map(o => {
-        if (o.id === order.id) {
-          return { ...o, status: newStatus, updatedAt: new Date() };
-        }
-        return o;
-      })
-    );
-    this.showStatusMenu.set(null);
-    this.showNotification(`Commande ${order.orderNumber} mise a jour`);
+    this.orderService.updateOrderStatus(order.id, newStatus).subscribe({
+      next: (updatedOrder) => {
+        this.orders.update(orders =>
+          orders.map(o => {
+            if (o.id === order.id) {
+              return { ...o, status: newStatus, updatedAt: new Date() };
+            }
+            return o;
+          })
+        );
+        this.showStatusMenu.set(null);
+        this.showNotification(`Commande ${order.orderNumber} mise à jour`);
+      },
+      error: (err) => {
+        console.error('Erreur', err);
+        alert('Impossible de mettre à jour le statut.');
+      }
+    });
   }
 
   showNotification(message: string): void {

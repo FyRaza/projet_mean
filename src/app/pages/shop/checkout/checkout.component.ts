@@ -12,13 +12,17 @@ interface Address {
   fullName: string;
   phone: string;
   street: string;
+  landmark?: string;
   city: string;
   postalCode: string;
   country: string;
+  latitude?: number;
+  longitude?: number;
   isDefault: boolean;
 }
 
 type PaymentMethod = 'cash' | 'mobile_money' | 'card';
+type DeliveryMethod = 'delivery' | 'pickup';
 
 @Component({
   selector: 'app-checkout',
@@ -49,15 +53,68 @@ type PaymentMethod = 'cash' | 'mobile_money' | 'card';
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <!-- Checkout Form -->
           <div class="lg:col-span-2 space-y-6">
-            <!-- Step 1: Delivery Address -->
+            <!-- Step 1: Fulfillment Method -->
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-sm">1</div>
+                  <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Mode de reception</h2>
+                </div>
+              </div>
+              <div class="p-6 space-y-3">
+                <label
+                  class="flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors"
+                  [class]="selectedDeliveryMethod() === 'delivery'
+                    ? 'border-brand-600 bg-brand-50 dark:bg-brand-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-600'"
+                >
+                  <input
+                    type="radio"
+                    name="deliveryMethod"
+                    value="delivery"
+                    [checked]="selectedDeliveryMethod() === 'delivery'"
+                    (change)="selectDeliveryMethod('delivery')"
+                  />
+                  <div>
+                    <p class="font-medium text-gray-900 dark:text-white">Livraison</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Le livreur apporte la commande a votre adresse.</p>
+                  </div>
+                </label>
+                <label
+                  class="flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors"
+                  [class]="selectedDeliveryMethod() === 'pickup'
+                    ? 'border-brand-600 bg-brand-50 dark:bg-brand-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-600'"
+                >
+                  <input
+                    type="radio"
+                    name="deliveryMethod"
+                    value="pickup"
+                    [checked]="selectedDeliveryMethod() === 'pickup'"
+                    (change)="selectDeliveryMethod('pickup')"
+                  />
+                  <div>
+                    <p class="font-medium text-gray-900 dark:text-white">Retrait en boutique</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Vous recuperez la commande directement au point de vente.</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Step 2: Delivery Address -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-sm">2</div>
                   <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Adresse de livraison</h2>
                 </div>
               </div>
               <div class="p-6">
+                @if (!isDeliverySelected()) {
+                  <div class="p-4 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-sm text-green-700 dark:text-green-300">
+                    Le retrait en boutique est selectionne. Aucune adresse de livraison n'est requise.
+                  </div>
+                } @else {
                 @if (addresses().length > 0) {
                   <div class="space-y-3">
                     @for (address of addresses(); track address.id) {
@@ -130,12 +187,21 @@ type PaymentMethod = 'cash' | 'mobile_money' | 'card';
                       </div>
                     </div>
                     <div>
-                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Adresse</label>
+                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Adresse / Rue</label>
                       <input
                         type="text"
                         [(ngModel)]="newAddress.street"
                         class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         placeholder="Rue, numero, quartier"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quartier / Repere (optionnel)</label>
+                      <input
+                        type="text"
+                        [(ngModel)]="newAddress.landmark"
+                        class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        placeholder="Ex: pres de la pharmacie..."
                       />
                     </div>
                     <div class="grid grid-cols-2 gap-4">
@@ -158,6 +224,45 @@ type PaymentMethod = 'cash' | 'mobile_money' | 'card';
                         />
                       </div>
                     </div>
+                    <div class="grid grid-cols-2 gap-4">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Latitude (optionnel)</label>
+                        <input
+                          type="number"
+                          step="any"
+                          [(ngModel)]="newAddress.latitude"
+                          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          placeholder="-18.8792"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Longitude (optionnel)</label>
+                        <input
+                          type="number"
+                          step="any"
+                          [(ngModel)]="newAddress.longitude"
+                          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          placeholder="47.5079"
+                        />
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <button
+                        type="button"
+                        (click)="useCurrentLocation()"
+                        [disabled]="isLocating()"
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        @if (isLocating()) {
+                          Localisation...
+                        } @else {
+                          Utiliser ma position actuelle
+                        }
+                      </button>
+                      @if (locationError()) {
+                        <span class="text-sm text-red-600 dark:text-red-400">{{ locationError() }}</span>
+                      }
+                    </div>
                     <div class="flex items-center gap-3">
                       <button
                         type="button"
@@ -178,14 +283,15 @@ type PaymentMethod = 'cash' | 'mobile_money' | 'card';
                     </div>
                   </div>
                 }
+                }
               </div>
             </div>
 
-            <!-- Step 2: Payment Method -->
+            <!-- Step 3: Payment Method -->
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
                 <div class="flex items-center gap-3">
-                  <div class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-sm">2</div>
+                  <div class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-sm">3</div>
                   <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Mode de paiement</h2>
                 </div>
               </div>
@@ -220,11 +326,11 @@ type PaymentMethod = 'cash' | 'mobile_money' | 'card';
               </div>
             </div>
 
-            <!-- Step 3: Order Summary by Boutique -->
+            <!-- Step 4: Order Summary by Boutique -->
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
                 <div class="flex items-center gap-3">
-                  <div class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-sm">3</div>
+                  <div class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-sm">4</div>
                   <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Resume des articles</h2>
                 </div>
               </div>
@@ -266,12 +372,12 @@ type PaymentMethod = 'cash' | 'mobile_money' | 'card';
 
             <!-- Notes -->
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Notes pour la livraison (optionnel)</label>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Notes de commande (optionnel)</label>
               <textarea
                 [(ngModel)]="orderNotes"
                 rows="3"
                 class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-                placeholder="Instructions speciales pour la livraison..."
+                placeholder="Instructions speciales (livraison ou retrait)..."
               ></textarea>
             </div>
           </div>
@@ -288,8 +394,8 @@ type PaymentMethod = 'cash' | 'mobile_money' | 'card';
                     <span>{{ summary.subtotal | number:'1.0-0' }} Ar</span>
                   </div>
                   <div class="flex justify-between text-gray-600 dark:text-gray-400">
-                    <span>Livraison</span>
-                    <span class="text-green-600 dark:text-green-400">Gratuite</span>
+                    <span>{{ selectedDeliveryMethod() === 'pickup' ? 'Retrait' : 'Livraison' }}</span>
+                    <span class="text-green-600 dark:text-green-400">{{ selectedDeliveryMethod() === 'pickup' ? 'Boutique' : 'Gratuite' }}</span>
                   </div>
                   <div class="flex justify-between text-gray-600 dark:text-gray-400">
                     <span>TVA (20%)</span>
@@ -325,11 +431,7 @@ type PaymentMethod = 'cash' | 'mobile_money' | 'card';
 
               @if (!canPlaceOrder()) {
                 <p class="mt-3 text-sm text-center text-red-600 dark:text-red-400">
-                  @if (!selectedAddressId()) {
-                    Veuillez selectionner une adresse de livraison
-                  } @else if (!selectedPaymentMethod()) {
-                    Veuillez selectionner un mode de paiement
-                  }
+                  {{ getCheckoutValidationMessage() }}
                 </p>
               }
 
@@ -384,20 +486,26 @@ export class CheckoutComponent implements OnInit {
 
   addresses = signal<Address[]>([]);
   selectedAddressId = signal<string | null>(null);
+  selectedDeliveryMethod = signal<DeliveryMethod>('delivery');
   selectedPaymentMethod = signal<PaymentMethod | null>(null);
   showNewAddressForm = signal<boolean>(false);
   isPlacingOrder = signal<boolean>(false);
   showOrderSuccess = signal<boolean>(false);
   orderNumber = signal<string>('');
   orderNotes = '';
+  isLocating = signal<boolean>(false);
+  locationError = signal<string>('');
 
   newAddress = {
     fullName: '',
     phone: '',
     street: '',
+    landmark: '',
     city: '',
     postalCode: '',
-    country: 'Madagascar'
+    country: 'Madagascar',
+    latitude: '',
+    longitude: ''
   };
 
   paymentMethods = [
@@ -438,27 +546,29 @@ export class CheckoutComponent implements OnInit {
   }
 
   private loadAddresses(): void {
-    // Mock addresses - Replace with actual API call
-    const mockAddresses: Address[] = [
-      {
-        id: 'addr-1',
-        label: 'Domicile',
-        fullName: 'Client User',
-        phone: '+261 34 00 000 00',
-        street: '123 Rue Principale, Analakely',
-        city: 'Antananarivo',
-        postalCode: '101',
-        country: 'Madagascar',
-        isDefault: true
-      }
-    ];
-    this.addresses.set(mockAddresses);
+    this.authService.getMyAddresses().subscribe({
+      next: (addresses) => {
+        const mappedAddresses: Address[] = (addresses || []).map((address: any) => ({
+          id: address.id,
+          label: address.label || 'Adresse',
+          fullName: address.fullName || `${this.authService.currentUser?.firstName || ''} ${this.authService.currentUser?.lastName || ''}`.trim(),
+          phone: address.phone || this.authService.currentUser?.phone || '',
+          street: address.street || '',
+          landmark: address.landmark || '',
+          city: address.city || '',
+          postalCode: address.postalCode || '',
+          country: address.country || 'Madagascar',
+          latitude: address.latitude,
+          longitude: address.longitude,
+          isDefault: !!address.isDefault
+        }));
 
-    // Auto-select default address
-    const defaultAddress = mockAddresses.find(a => a.isDefault);
-    if (defaultAddress) {
-      this.selectedAddressId.set(defaultAddress.id);
-    }
+        this.addresses.set(mappedAddresses);
+        const defaultAddress = mappedAddresses.find(a => a.isDefault) || mappedAddresses[0];
+        if (defaultAddress) this.selectedAddressId.set(defaultAddress.id);
+      },
+      error: () => this.addresses.set([])
+    });
   }
 
   selectAddress(id: string): void {
@@ -469,40 +579,65 @@ export class CheckoutComponent implements OnInit {
     this.selectedPaymentMethod.set(method);
   }
 
+  selectDeliveryMethod(method: DeliveryMethod): void {
+    this.selectedDeliveryMethod.set(method);
+  }
+
+  isDeliverySelected(): boolean {
+    return this.selectedDeliveryMethod() === 'delivery';
+  }
+
   saveNewAddress(): void {
-    if (!this.newAddress.fullName || !this.newAddress.phone || !this.newAddress.street || !this.newAddress.city) {
+    if (!this.newAddress.fullName || !this.newAddress.phone || (!this.newAddress.street && !this.newAddress.landmark)) {
       return;
     }
 
-    const newAddr: Address = {
-      id: 'addr-' + Date.now(),
+    this.authService.addAddress({
       label: 'Nouvelle adresse',
       fullName: this.newAddress.fullName,
       phone: this.newAddress.phone,
       street: this.newAddress.street,
+      landmark: this.newAddress.landmark,
       city: this.newAddress.city,
       postalCode: this.newAddress.postalCode || '',
       country: this.newAddress.country,
+      latitude: this.parseCoordinate(this.newAddress.latitude),
+      longitude: this.parseCoordinate(this.newAddress.longitude),
       isDefault: this.addresses().length === 0
-    };
+    }).subscribe({
+      next: (created) => {
+        this.addresses.update(addrs => [...addrs, created as Address]);
+        this.selectedAddressId.set((created as Address).id);
+        this.showNewAddressForm.set(false);
 
-    this.addresses.update(addrs => [...addrs, newAddr]);
-    this.selectedAddressId.set(newAddr.id);
-    this.showNewAddressForm.set(false);
-
-    // Reset form
-    this.newAddress = {
-      fullName: '',
-      phone: '',
-      street: '',
-      city: '',
-      postalCode: '',
-      country: 'Madagascar'
-    };
+        this.newAddress = {
+          fullName: '',
+          phone: '',
+          street: '',
+          landmark: '',
+          city: '',
+          postalCode: '',
+          country: 'Madagascar',
+          latitude: '',
+          longitude: ''
+        };
+      }
+    });
   }
 
   canPlaceOrder(): boolean {
-    return !!this.selectedAddressId() && !!this.selectedPaymentMethod();
+    const hasAddress = this.isDeliverySelected() ? !!this.selectedAddressId() : true;
+    return hasAddress && !!this.selectedPaymentMethod();
+  }
+
+  getCheckoutValidationMessage(): string {
+    if (this.isDeliverySelected() && !this.selectedAddressId()) {
+      return 'Veuillez selectionner une adresse de livraison';
+    }
+    if (!this.selectedPaymentMethod()) {
+      return 'Veuillez selectionner un mode de paiement';
+    }
+    return '';
   }
 
   placeOrder(): void {
@@ -510,15 +645,70 @@ export class CheckoutComponent implements OnInit {
 
     this.isPlacingOrder.set(true);
 
-    // Simulate order placement
-    setTimeout(() => {
-      const orderNum = 'CMD-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-      this.orderNumber.set(orderNum);
-      this.isPlacingOrder.set(false);
-      this.showOrderSuccess.set(true);
+    const addrId = this.selectedAddressId();
+    const addr = this.addresses().find(a => a.id === addrId);
 
-      // Clear cart after successful order
-      this.cartService.clearCart().subscribe();
-    }, 2000);
+    // Convert address to expected params format
+    const shippingAddress = this.isDeliverySelected() && addr ? {
+      street: addr.street,
+      landmark: addr.landmark,
+      city: addr.city,
+      postalCode: addr.postalCode,
+      country: addr.country,
+      latitude: addr.latitude,
+      longitude: addr.longitude
+    } : undefined;
+
+    this.cartService.checkout({
+      fulfillmentType: this.selectedDeliveryMethod(),
+      shippingAddress,
+      notes: this.orderNotes || undefined
+    }).subscribe({
+      next: (orderIds) => {
+        // orderIds is an array of created order IDs from the backend
+        const orderNum = orderIds && orderIds.length > 0 ? orderIds[0].slice(-8).toUpperCase() : 'CMD-XXXX';
+        this.orderNumber.set(orderNum);
+        this.isPlacingOrder.set(false);
+        this.showOrderSuccess.set(true);
+      },
+      error: (err) => {
+        console.error('Erreur lors de la création de la commande', err);
+        alert('Une erreur est survenue lors de la validation de la commande. Veuillez réessayer.');
+        this.isPlacingOrder.set(false);
+      }
+    });
+  }
+
+  private parseCoordinate(value: string): number | undefined {
+    if (!value?.trim()) return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  useCurrentLocation(): void {
+    this.locationError.set('');
+    if (!('geolocation' in navigator)) {
+      this.locationError.set('La geolocalisation n est pas supportee par ce navigateur.');
+      return;
+    }
+
+    this.isLocating.set(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        this.newAddress.latitude = position.coords.latitude.toString();
+        this.newAddress.longitude = position.coords.longitude.toString();
+        this.isLocating.set(false);
+      },
+      (error) => {
+        const messageMap: Record<number, string> = {
+          1: 'Permission de localisation refusee.',
+          2: 'Position indisponible.',
+          3: 'Delai depasse pour obtenir la position.'
+        };
+        this.locationError.set(messageMap[error.code] || 'Impossible de recuperer la position.');
+        this.isLocating.set(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   }
 }

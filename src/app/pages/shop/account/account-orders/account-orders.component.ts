@@ -1,33 +1,12 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { AuthService } from '../../../../shared/services/auth.service';
-
-type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'ready' | 'delivered' | 'cancelled';
-
-interface OrderItem {
-  id: string;
-  productId: string;
-  productName: string;
-  productImage?: string;
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-}
-
-interface Order {
-  id: string;
-  orderNumber: string;
-  boutiqueName: string;
-  boutiqueSlug: string;
-  items: OrderItem[];
-  subtotal: number;
-  tax: number;
-  total: number;
-  status: OrderStatus;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { OrderService } from '../../../../shared/services/order.service';
+import { Order, OrderStatus } from '../../../../core/models/order.model';
+import { firstValueFrom } from 'rxjs';
+import { CartService } from '../../../../shared/services/cart.service';
+import { ProductService } from '../../../../shared/services/product.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-account-orders',
@@ -83,7 +62,7 @@ interface Order {
                   </div>
                   <div class="hidden md:block border-l border-gray-300 dark:border-gray-600 pl-4">
                     <p class="text-sm text-gray-500 dark:text-gray-400">Boutique</p>
-                    <a [routerLink]="['/boutiques', order.boutiqueSlug]" class="font-medium text-brand-600 dark:text-brand-400 hover:underline">
+                    <a [routerLink]="['/boutiques', order.boutiqueId]" class="font-medium text-brand-600 dark:text-brand-400 hover:underline">
                       {{ order.boutiqueName }}
                     </a>
                   </div>
@@ -152,6 +131,7 @@ interface Order {
                   @if (order.status === 'delivered') {
                     <button
                       type="button"
+                      (click)="reorder(order)"
                       class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     >
                       Commander a nouveau
@@ -245,121 +225,95 @@ interface Order {
           }
         </div>
       }
+
+      @if (selectedOrder(); as detail) {
+        <div class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50" (click)="closeOrderDetails()">
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" (click)="$event.stopPropagation()">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Commande {{ detail.orderNumber }}</h3>
+              <button type="button" (click)="closeOrderDetails()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div class="p-6 space-y-4">
+              <div class="grid grid-cols-2 gap-4 text-sm">
+                <div><p class="text-gray-500 dark:text-gray-400">Statut</p><p class="font-medium text-gray-900 dark:text-white">{{ getStatusLabel(detail.status) }}</p></div>
+                <div><p class="text-gray-500 dark:text-gray-400">Paiement</p><p class="font-medium text-gray-900 dark:text-white">{{ detail.paymentStatus }}</p></div>
+                <div><p class="text-gray-500 dark:text-gray-400">Date</p><p class="font-medium text-gray-900 dark:text-white">{{ detail.createdAt | date:'dd/MM/yyyy HH:mm' }}</p></div>
+                <div><p class="text-gray-500 dark:text-gray-400">Total</p><p class="font-medium text-gray-900 dark:text-white">{{ detail.total | number:'1.2-2' }} Ar</p></div>
+              </div>
+              <div class="pt-2 border-t border-gray-200 dark:border-gray-700">
+                <h4 class="font-semibold text-gray-900 dark:text-white mb-3">Articles</h4>
+                <div class="space-y-3">
+                  @for (item of detail.items; track item.id) {
+                    <div class="flex items-center justify-between text-sm">
+                      <p class="text-gray-700 dark:text-gray-300">{{ item.productName }} x{{ item.quantity }}</p>
+                      <p class="font-medium text-gray-900 dark:text-white">{{ item.totalPrice | number:'1.2-2' }} Ar</p>
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
     </div>
   `
 })
 export class AccountOrdersComponent implements OnInit {
-  private authService = inject(AuthService);
+  private orderService = inject(OrderService);
+  private cartService = inject(CartService);
+  private productService = inject(ProductService);
+  private router = inject(Router);
 
   orders = signal<Order[]>([]);
   activeFilter = signal<OrderStatus | null>(null);
+  selectedOrder = signal<Order | null>(null);
 
   statusTabs: { label: string; value: OrderStatus | null }[] = [
     { label: 'Toutes', value: null },
     { label: 'En attente', value: 'pending' },
-    { label: 'Confirmees', value: 'confirmed' },
-    { label: 'En preparation', value: 'processing' },
-    { label: 'Pretes', value: 'ready' },
-    { label: 'Livrees', value: 'delivered' },
-    { label: 'Annulees', value: 'cancelled' }
+    { label: 'Confirmées', value: 'confirmed' },
+    { label: 'Expédiées', value: 'shipped' },
+    { label: 'Livrées', value: 'delivered' },
+    { label: 'Annulées', value: 'cancelled' },
+    { label: 'Remboursées', value: 'refunded' }
   ];
 
   orderSteps = [
     { status: 'pending', label: 'En attente' },
-    { status: 'confirmed', label: 'Confirmee' },
-    { status: 'processing', label: 'Preparation' },
-    { status: 'ready', label: 'Prete' },
-    { status: 'delivered', label: 'Livree' }
+    { status: 'confirmed', label: 'Confirmée' },
+    { status: 'shipped', label: 'Expédiée' },
+    { status: 'delivered', label: 'Livrée' }
   ];
 
-  private statusOrder: OrderStatus[] = ['pending', 'confirmed', 'processing', 'ready', 'delivered'];
+  private statusOrder: OrderStatus[] = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled', 'refunded'];
 
   ngOnInit(): void {
     this.loadOrders();
   }
 
-  private loadOrders(): void {
-    // Mock orders data
-    const mockOrders: Order[] = [
-      {
-        id: '1',
-        orderNumber: 'CMD-2024-0001',
-        boutiqueName: 'Mode Express',
-        boutiqueSlug: 'mode-express',
-        items: [
-          {
-            id: 'item-1',
-            productId: 'prod-1',
-            productName: 'T-shirt Premium Coton',
-            productImage: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100&h=100&fit=crop',
-            quantity: 2,
-            unitPrice: 35000,
-            totalPrice: 70000
-          },
-          {
-            id: 'item-2',
-            productId: 'prod-2',
-            productName: 'Jean Slim Fit',
-            quantity: 1,
-            unitPrice: 85000,
-            totalPrice: 85000
-          }
-        ],
-        subtotal: 155000,
-        tax: 31000,
-        total: 186000,
-        status: 'processing',
-        createdAt: new Date('2024-02-05'),
-        updatedAt: new Date('2024-02-06')
-      },
-      {
-        id: '2',
-        orderNumber: 'CMD-2024-0002',
-        boutiqueName: 'Tech Corner',
-        boutiqueSlug: 'tech-corner',
-        items: [
-          {
-            id: 'item-3',
-            productId: 'prod-3',
-            productName: 'Ecouteurs Bluetooth Pro',
-            productImage: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&h=100&fit=crop',
-            quantity: 1,
-            unitPrice: 120000,
-            totalPrice: 120000
-          }
-        ],
-        subtotal: 120000,
-        tax: 24000,
-        total: 144000,
-        status: 'delivered',
-        createdAt: new Date('2024-01-28'),
-        updatedAt: new Date('2024-02-01')
-      },
-      {
-        id: '3',
-        orderNumber: 'CMD-2024-0003',
-        boutiqueName: 'Beaute Plus',
-        boutiqueSlug: 'beaute-plus',
-        items: [
-          {
-            id: 'item-4',
-            productId: 'prod-4',
-            productName: 'Coffret Soins Visage',
-            quantity: 1,
-            unitPrice: 95000,
-            totalPrice: 95000
-          }
-        ],
-        subtotal: 95000,
-        tax: 19000,
-        total: 114000,
-        status: 'pending',
-        createdAt: new Date('2024-02-08'),
-        updatedAt: new Date('2024-02-08')
-      }
-    ];
+  private async loadOrders(): Promise<void> {
+    try {
+      const allOrders: Order[] = [];
+      let page = 1;
+      let pages = 1;
+      const limit = 100;
 
-    this.orders.set(mockOrders);
+      do {
+        const res = await firstValueFrom(this.orderService.getOrders({ page, limit }));
+        allOrders.push(...(res.orders || []));
+        pages = res.pages || 1;
+        page += 1;
+      } while (page <= pages);
+
+      this.orders.set(allOrders);
+    } catch (err) {
+      console.error('Erreur lors du chargement des commandes', err);
+      this.orders.set([]);
+    }
   }
 
   filteredOrders = () => {
@@ -375,13 +329,13 @@ export class AccountOrdersComponent implements OnInit {
   getStatusLabel(status: OrderStatus): string {
     const labels: Record<OrderStatus, string> = {
       pending: 'En attente',
-      confirmed: 'Confirmee',
-      processing: 'En preparation',
-      ready: 'Prete',
-      delivered: 'Livree',
-      cancelled: 'Annulee'
+      confirmed: 'Confirmée',
+      shipped: 'Expédiée',
+      delivered: 'Livrée',
+      cancelled: 'Annulée',
+      refunded: 'Remboursée'
     };
-    return labels[status];
+    return labels[status] || status;
   }
 
   getStatusClasses(status: OrderStatus): string {
@@ -389,12 +343,12 @@ export class AccountOrdersComponent implements OnInit {
     const statusClasses: Record<OrderStatus, string> = {
       pending: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
       confirmed: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
-      processing: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
-      ready: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400',
+      shipped: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
       delivered: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
-      cancelled: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+      cancelled: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+      refunded: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
     };
-    return `${baseClasses} ${statusClasses[status]}`;
+    return `${baseClasses} ${statusClasses[status] || ''}`;
   }
 
   isStepComplete(currentStatus: OrderStatus, stepStatus: string): boolean {
@@ -409,17 +363,45 @@ export class AccountOrdersComponent implements OnInit {
   }
 
   viewOrderDetails(order: Order): void {
-    // TODO: Navigate to order details page or open modal
-    console.log('View order details:', order.id);
+    this.orderService.getOrderById(order.id).subscribe({
+      next: (details) => this.selectedOrder.set(details),
+      error: () => this.selectedOrder.set(order)
+    });
+  }
+
+  closeOrderDetails(): void {
+    this.selectedOrder.set(null);
   }
 
   cancelOrder(order: Order): void {
     if (confirm('Voulez-vous vraiment annuler cette commande ?')) {
-      // TODO: Call API to cancel order
-      const updatedOrders = this.orders().map(o =>
-        o.id === order.id ? { ...o, status: 'cancelled' as OrderStatus } : o
-      );
-      this.orders.set(updatedOrders);
+      this.orderService.updateOrderStatus(order.id, 'cancelled').subscribe({
+        next: (updatedOrder) => {
+          const updatedOrders = this.orders().map(o =>
+            o.id === order.id ? { ...o, status: 'cancelled' as OrderStatus } : o
+          );
+          this.orders.set(updatedOrders);
+        },
+        error: (err) => {
+          console.error(`Erreur lors de l'annulation`, err);
+          alert(`Impossible d'annuler la commande. Veuillez réessayer.`);
+        }
+      });
+    }
+  }
+
+  async reorder(order: Order): Promise<void> {
+    try {
+      for (const item of order.items) {
+        const product = await firstValueFrom(this.productService.getProductById(item.productId));
+        if (product && product.stock > 0) {
+          await firstValueFrom(this.cartService.addToCart(product as any, product.boutiqueName || order.boutiqueName, item.quantity));
+        }
+      }
+      this.router.navigate(['/cart']);
+    } catch (err) {
+      console.error('Erreur lors de la recomposition du panier', err);
+      alert('Impossible de commander a nouveau pour le moment.');
     }
   }
 }

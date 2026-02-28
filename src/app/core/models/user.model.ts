@@ -32,10 +32,15 @@ export interface AcheteurUser extends User {
 export interface Address {
   id: string;
   label: string;
+  fullName?: string;
+  phone?: string;
   street: string;
+  landmark?: string;
   city: string;
   postalCode: string;
   country: string;
+  latitude?: number;
+  longitude?: number;
   isDefault: boolean;
 }
 

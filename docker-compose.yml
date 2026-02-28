@@ -1,0 +1,50 @@
+services:
+  mongo:
+    image: mongo:8.0
+    container_name: mall-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: mall_manage_db
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mall-backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGO_URI: mongodb://mongo:27017/mall_manage_db
+      JWT_SECRET: ${JWT_SECRET:-replace_with_a_strong_secret}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+    ports:
+      - "5000:5000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: mall-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  mongo_data:
