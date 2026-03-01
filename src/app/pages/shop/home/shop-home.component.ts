@@ -449,7 +449,7 @@ export class ShopHomeComponent implements OnInit {
       name: 'Rakoto Andrianaivo',
       avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80',
       role: 'Client fidèle',
-      content: 'Une expérience d\'achat exceptionnelle ! Les produits sont de qualité et la livraison est toujours rapide. Je recommande vivement ce centre commercial.',
+      content: 'Une expérience d\'achat exceptionnelle ! Les produits sont de qualité et la livraison est toujours rapide. Je recommande vivement IAVOKO Centre Commercial.',
       rating: 5
     },
     {

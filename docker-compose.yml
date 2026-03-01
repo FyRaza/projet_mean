@@ -29,7 +29,7 @@ services:
       mongo:
         condition: service_healthy
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-development}
       PORT: 5000
       MONGO_URI: mongodb://${MONGO_ROOT_USER:-mall_admin}:${MONGO_ROOT_PASSWORD:-mall_secret_2026}@mongo:27017/mall_manage_db?authSource=admin
       JWT_SECRET: ${JWT_SECRET:-replace_with_a_strong_secret}
@@ -43,8 +43,8 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-${SMTP_USER}}
-      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Centre Commercial}
-      APP_NAME: ${APP_NAME:-Centre Commercial}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-IAVOKO Centre Commercial}
+      APP_NAME: ${APP_NAME:-IAVOKO Centre Commercial}
       # Google OAuth
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       # Cloudinary (Upload d'images)

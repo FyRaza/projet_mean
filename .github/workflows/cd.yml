@@ -1,0 +1,105 @@
+# ══════════════════════════════════════════════════
+#  CD Pipeline — Déploiement automatique
+#  Déclenché uniquement sur push vers main/master
+# ══════════════════════════════════════════════════
+
+name: CD — Déploiement Production
+
+on:
+  push:
+    branches: [main, master]
+
+  # Permet le déclenchement manuel depuis GitHub
+  workflow_dispatch:
+
+jobs:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Job 1: Lancer le CI d'abord
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ci:
+    name: 🧪 CI Pipeline
+    uses: ./.github/workflows/ci.yml
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Job 2: Déploiement sur le serveur
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  deploy:
+    name: 🚀 Déploiement Production
+    runs-on: ubuntu-latest
+    needs: ci  # Seulement si tous les tests passent
+    environment: production
+
+    steps:
+      - name: 📥 Checkout du code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Déploiement via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            set -e
+            echo "═══════════════════════════════════════"
+            echo "🚀 Déploiement en cours..."
+            echo "═══════════════════════════════════════"
+
+            # Aller dans le dossier du projet
+            cd ${{ secrets.PROJECT_PATH || '~/projet_mean' }}
+
+            # Sauvegarder la version actuelle
+            echo "📋 Version actuelle : $(git rev-parse --short HEAD)"
+
+            # Pull les dernières modifications
+            echo "📥 Récupération du code..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Reconstruire et redémarrer les conteneurs
+            echo "🐳 Reconstruction des images Docker..."
+            docker-compose build --no-cache
+
+            echo "🔄 Redémarrage des services..."
+            docker-compose down
+            docker-compose up -d
+
+            # Attendre que tout soit prêt
+            echo "⏳ Attente du démarrage..."
+            sleep 10
+
+            # Vérification de santé
+            echo "🔍 Vérification..."
+            HEALTH=$(curl -s http://localhost:5000/api/health | grep -o '"ok"' || echo "FAIL")
+            if [ "$HEALTH" = '"ok"' ]; then
+              echo "✅ Backend OK"
+            else
+              echo "❌ Backend DOWN — Rollback..."
+              docker-compose logs --tail=50 backend
+              exit 1
+            fi
+
+            FRONTEND=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/)
+            if [ "$FRONTEND" = "200" ]; then
+              echo "✅ Frontend OK"
+            else
+              echo "❌ Frontend DOWN"
+              exit 1
+            fi
+
+            echo ""
+            echo "═══════════════════════════════════════"
+            echo "✅ Déploiement réussi !"
+            echo "📋 Nouvelle version : $(git rev-parse --short HEAD)"
+            echo "📅 $(date)"
+            echo "═══════════════════════════════════════"
+
+      - name: 📢 Notification succès
+        if: success()
+        run: echo "✅ Déploiement réussi sur production !"
+
+      - name: 📢 Notification échec
+        if: failure()
+        run: echo "❌ Déploiement échoué ! Vérifiez les logs."
+

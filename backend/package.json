@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "seed": "node src/seed.js",
     "seed:full": "node src/seed.full.js",
+    "seed:demo": "node src/seed-demo.js",
     "test:smtp": "node test-smtp.js",
     "test:pos": "node test-pos.js",
     "test:pos:complete": "node test-pos-complete.js",

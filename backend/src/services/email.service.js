@@ -71,7 +71,7 @@ const sendEmail = async ({ to, subject, html, text }) => {
 
         const transporter = createTransporter();
         const info = await transporter.sendMail({
-            from: `"${process.env.SMTP_FROM_NAME || 'Centre Commercial'}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+            from: `"${process.env.SMTP_FROM_NAME || 'IAVOKO Centre Commercial'}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
             to,
             subject,
             html,
@@ -98,7 +98,7 @@ const sendWelcomeEmail = async (user) => {
 
     return await sendEmail({
         to: user.email,
-        subject: `Bienvenue sur ${process.env.APP_NAME || 'Centre Commercial'} !`,
+        subject: `Bienvenue sur ${process.env.APP_NAME || 'IAVOKO Centre Commercial'} !`,
         html
     });
 };

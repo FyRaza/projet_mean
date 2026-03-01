@@ -41,8 +41,8 @@ export class SigninFormComponent {
   // Demo accounts (aligned with backend seed script)
   private demoAccounts: Record<string, { email: string; password: string; label: string }> = {
     admin: { email: 'admin@mall.mg', password: 'Admin1234!', label: 'Admin' },
-    boutique: { email: 'boutique@mall.mg', password: 'Boutique1234!', label: 'Boutique' },
-    client: { email: 'client@mall.mg', password: 'Client1234!', label: 'Client' }
+    boutique: { email: 'boutique1@mall.mg', password: 'Boutique1234!', label: 'Boutique' },
+    client: { email: 'client1@mall.mg', password: 'Client1234!', label: 'Client' }
   };
 
   togglePasswordVisibility() {

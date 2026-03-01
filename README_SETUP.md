@@ -1,7 +1,7 @@
-# 🏬 Projet MEAN - Gestion de Centre Commercial
+# 🏬 Projet MEAN - IAVOKO Centre Commercial
 
 ## 📋 Description
-Système complet de gestion de centre commercial développé avec la stack MEAN (MongoDB, Express.js, Angular, Node.js).
+Système complet de gestion pour IAVOKO Centre Commercial développé avec la stack MEAN (MongoDB, Express.js, Angular, Node.js).
 
 ## 🛠️ Technologies Utilisées
 
@@ -113,9 +113,15 @@ Pour tester l'authentification avec le backend (une fois MongoDB démarré) :
 
 | Rôle | Email | Mot de passe | Accès |
 |------|-------|--------------|-------|
-| Admin | `admin@mail.com` | `password` | Dashboard Admin |
-| Boutique | `boutique@mail.com` | `password` | Gestion Boutique |
-| Client | `client@mail.com` | `password` | Interface Client |
+| Admin | `admin@mall.mg` | `Admin1234!` | Dashboard Admin |
+| Boutique | `boutique1@mall.mg` | `Boutique1234!` | Gestion Boutique + Caisse POS |
+| Client | `client1@mall.mg` | `Client1234!` | Interface Client |
+
+> 💡 **Note** : Pour générer les données de démonstration complètes, exécutez :
+> ```bash
+> docker exec mall-backend npm run seed:demo
+> ```
+> Cela créera 16 utilisateurs, 8 boutiques, 48 produits, 30 commandes en ligne et 50 ventes POS.
 
 ## 📡 API Endpoints
 

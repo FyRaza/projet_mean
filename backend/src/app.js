@@ -94,7 +94,7 @@ app.get('/api/health', (req, res) => {
 // Swagger UI — Documentation interactive de l'API
 // -----------------------------------------------
 const swaggerUiOptions = {
-    customSiteTitle: '🏬 Mall API Docs',
+    customSiteTitle: '🏬 IAVOKO Centre Commercial API Docs',
     customCss: `
         .swagger-ui .topbar { background-color: #1a1a2e; }
         .swagger-ui .topbar a { color: #e94560; }
@@ -137,7 +137,7 @@ app.get('/', (req, res) => {
     const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
 
     res.json({
-        message: '🏬 Welcome to Mall Management API',
+        message: '🏬 Welcome to IAVOKO Centre Commercial API',
         version: '1.0.0',
         documentation: isSwaggerEnabled ? `${baseUrl}/api/docs` : null,
         endpoints: {
