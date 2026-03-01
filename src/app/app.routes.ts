@@ -42,43 +42,43 @@ export const routes: Routes = [
         path: '',
         loadComponent: () => import('./pages/shop/home/shop-home.component').then(m => m.ShopHomeComponent),
         pathMatch: 'full',
-        title: 'Accueil | IAVOKO Centre Commercial'
+        title: 'Accueil | m1p13mean-Finaritra-Fanyah'
       },
       {
         path: 'boutiques',
         loadComponent: () => import('./pages/shop/boutiques/boutique-listing/boutique-listing.component').then(m => m.BoutiqueListingComponent),
-        title: 'Boutiques | IAVOKO Centre Commercial'
+        title: 'Boutiques | m1p13mean-Finaritra-Fanyah'
       },
       {
         path: 'boutiques/:slug',
         loadComponent: () => import('./pages/shop/boutiques/boutique-page/boutique-page.component').then(m => m.BoutiquePageComponent),
-        title: 'Boutique | IAVOKO Centre Commercial'
+        title: 'Boutique | m1p13mean-Finaritra-Fanyah'
       },
       {
         path: 'products',
         loadComponent: () => import('./pages/shop/products/product-listing/product-listing.component').then(m => m.ProductListingComponent),
-        title: 'Produits | IAVOKO Centre Commercial'
+        title: 'Produits | m1p13mean-Finaritra-Fanyah'
       },
       {
         path: 'product/:boutiqueSlug/:productSlug',
         loadComponent: () => import('./pages/shop/products/product-details/product-details.component').then(m => m.ProductDetailsComponent),
-        title: 'Produit | IAVOKO Centre Commercial'
+        title: 'Produit | m1p13mean-Finaritra-Fanyah'
       },
       {
         path: 'categories',
         loadComponent: () => import('./pages/shop/categories/category-listing/category-listing.component').then(m => m.CategoryListingComponent),
-        title: 'Categories | IAVOKO Centre Commercial'
+        title: 'Categories | m1p13mean-Finaritra-Fanyah'
       },
       {
         path: 'cart',
         loadComponent: () => import('./pages/shop/cart/cart.component').then(m => m.CartComponent),
-        title: 'Panier | IAVOKO Centre Commercial'
+        title: 'Panier | m1p13mean-Finaritra-Fanyah'
       },
       {
         path: 'checkout',
         loadComponent: () => import('./pages/shop/checkout/checkout.component').then(m => m.CheckoutComponent),
         canActivate: [AuthGuard],
-        title: 'Paiement | IAVOKO Centre Commercial'
+        title: 'Paiement | m1p13mean-Finaritra-Fanyah'
       },
       {
         path: 'account',
@@ -93,12 +93,12 @@ export const routes: Routes = [
           {
             path: 'profile',
             loadComponent: () => import('./pages/shop/account/account-profile/account-profile.component').then(m => m.AccountProfileComponent),
-            title: 'Mon Profil | IAVOKO Centre Commercial'
+            title: 'Mon Profil | m1p13mean-Finaritra-Fanyah'
           },
           {
             path: 'orders',
             loadComponent: () => import('./pages/shop/account/account-orders/account-orders.component').then(m => m.AccountOrdersComponent),
-            title: 'Mes Commandes | IAVOKO Centre Commercial'
+            title: 'Mes Commandes | m1p13mean-Finaritra-Fanyah'
           }
         ]
       }
@@ -111,26 +111,26 @@ export const routes: Routes = [
   {
     path: 'signin',
     component: SignInComponent,
-    title: 'Connexion | IAVOKO Centre Commercial'
+    title: 'Connexion | m1p13mean-Finaritra-Fanyah'
   },
   {
     path: 'signup',
     component: SignUpComponent,
-    title: 'Inscription | IAVOKO Centre Commercial'
+    title: 'Inscription | m1p13mean-Finaritra-Fanyah'
   },
   {
     path: 'signup/boutique',
     loadComponent: () => import('./pages/auth-pages/sign-up-boutique/sign-up-boutique.component').then(m => m.SignUpBoutiqueComponent),
-    title: 'Inscription Boutique | IAVOKO Centre Commercial'
+    title: 'Inscription Boutique | m1p13mean-Finaritra-Fanyah'
   },
   {
     path: 'reset-password',
     loadComponent: () => import('./pages/auth-pages/reset-password/reset-password.component').then(m => m.ResetPasswordComponent),
-    title: 'Réinitialisation de mot de passe | IAVOKO Centre Commercial'
+    title: 'Réinitialisation de mot de passe | m1p13mean-Finaritra-Fanyah'
   },
 
   // ============================================
-  // ADMIN ROUTES - IAVOKO Centre Commercial Admin
+  // ADMIN ROUTES - m1p13mean-Finaritra-Fanyah Admin
   // ============================================
   {
     path: 'admin',
@@ -366,6 +366,6 @@ export const routes: Routes = [
   {
     path: '**',
     component: NotFoundComponent,
-    title: '404 | IAVOKO Centre Commercial'
+    title: '404 | m1p13mean-Finaritra-Fanyah'
   }
 ];

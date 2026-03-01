@@ -75,7 +75,7 @@ interface CategoryItem {
               </div>
               <div class="hidden sm:block">
                 <h1 class="text-lg lg:text-xl font-bold text-gray-900 dark:text-white leading-tight">
-                  IAVOKO Centre Commercial
+                  m1p13mean-Finaritra-Fanyah
                 </h1>
                 <p class="text-xs text-gray-500 dark:text-gray-400">Votre marketplace local</p>
               </div>

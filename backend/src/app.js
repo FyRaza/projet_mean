@@ -94,7 +94,7 @@ app.get('/api/health', (req, res) => {
 // Swagger UI — Documentation interactive de l'API
 // -----------------------------------------------
 const swaggerUiOptions = {
-    customSiteTitle: '🏬 IAVOKO Centre Commercial API Docs',
+    customSiteTitle: '🏬 m1p13mean-Finaritra-Fanyah API Docs',
     customCss: `
         .swagger-ui .topbar { background-color: #1a1a2e; }
         .swagger-ui .topbar a { color: #e94560; }
@@ -137,7 +137,7 @@ app.get('/', (req, res) => {
     const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
 
     res.json({
-        message: '🏬 Welcome to IAVOKO Centre Commercial API',
+        message: '🏬 Welcome to m1p13mean-Finaritra-Fanyah API',
         version: '1.0.0',
         documentation: isSwaggerEnabled ? `${baseUrl}/api/docs` : null,
         endpoints: {
